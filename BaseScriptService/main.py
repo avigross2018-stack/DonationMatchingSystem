@@ -14,9 +14,9 @@ def main():
 
     try:
         cursor.execute(
-            "CREATE DATABASE IF NOT EXISTS AidConnect " "CHARACTER SET utf8mb4"
+            f"CREATE DATABASE IF NOT EXISTS {const.MYSQL_DATABASE} " "CHARACTER SET utf8mb4"
         )
-        cursor.execute("USE AidConnect")
+        cursor.execute(f"USE {const.MYSQL_DATABASE}")
 
         queries = [
             """
