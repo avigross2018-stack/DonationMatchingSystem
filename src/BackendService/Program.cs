@@ -48,11 +48,15 @@ builder.Services.AddDbContext<AppDbContext>(op =>
 // Repos DI
 builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<IDonorRepo, DonorRepo>();
+builder.Services.AddScoped<IDonationRepo, DonationRepo>();
+builder.Services.AddScoped<IPopulationTypeRepo, PopulationTypeRepo>();
 
+// Services DI
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<DonationService>();
 
 
 var jwtKey = builder.Configuration["JWT:KEY"]

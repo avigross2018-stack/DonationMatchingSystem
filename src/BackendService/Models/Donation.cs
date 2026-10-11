@@ -20,7 +20,7 @@ namespace BackendService.Models
 
         [Column(TypeName = "decimal(10,2)")]
         [Range(0, double.MaxValue)]
-        public decimal OriginalAmount { get; set; }
+        public decimal TotalAmount { get; set; }
 
         [Column(TypeName = "decimal(10,2)")]
         public decimal RemainingAmount { get; set; }
@@ -29,13 +29,11 @@ namespace BackendService.Models
         public decimal MaxAmountPerRecipient { get; set; }
 
         [MaxLength(250)]
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public DateTime ExpirationDate { get; set; }
-
-        public bool IsActive { get; set; } = true;
+        public DateTime? ExpirationDate { get; set; }
 
         [Required]
         public string Status { get; set; } = string.Empty;
