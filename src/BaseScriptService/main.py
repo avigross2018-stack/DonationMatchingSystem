@@ -1,5 +1,6 @@
 import mysql.connector
-import src.BaseScriptService.const as const
+
+import const
 
 
 def main():
