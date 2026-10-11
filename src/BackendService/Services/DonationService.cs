@@ -97,5 +97,30 @@ namespace BackendService.Services
 
             return donation.Id;
         }
+
+        public async Task<List<DonationResponseDto>> GetMyDonationsAsync(int userId)
+        {
+            var donor = await _donorRepo.GetByUserIdAsync(userId);
+
+            if (donor == null)
+            {
+                throw new InvalidOperationException("Donor profile not found.");
+            }
+
+            var donations = await _donationRepo.GetByDonorIdAsync(donor.Id);
+
+            return donations.Select(d => new DonationResponseDto
+            {
+                Id = d.Id,
+                PopulationTypeId = d.PopulationTypeId,
+                TotalAmount = d.TotalAmount,
+                RemainingAmount = d.RemainingAmount,
+                MaxAmountPerRecipient = d.MaxAmountPerRecipient,
+                Description = d.Description,
+                CreatedAt = d.CreatedAt,
+                ExpirationDate = d.ExpirationDate,
+                Status = d.Status
+            }).ToList();
+        }
     }
 }

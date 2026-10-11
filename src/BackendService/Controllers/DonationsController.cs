@@ -29,7 +29,7 @@ namespace BackendService.Controllers
         {
             var userIdValue = User.FindFirstValue("sub");
 
-            if(!int.TryParse(userIdValue, out int userId))
+            if (!int.TryParse(userIdValue, out int userId))
             {
                 return Unauthorized();
             }
@@ -45,7 +45,7 @@ namespace BackendService.Controllers
                     DonationId = donationId
                 });
             }
-            catch(ArgumentException ex)
+            catch (ArgumentException ex)
             {
                 return BadRequest(new
                 {
@@ -56,6 +56,21 @@ namespace BackendService.Controllers
             {
                 return Forbid();
             }
+        }
+
+        [HttpGet("show-donations")]
+        public async Task<IActionResult> GetMyDonations()
+        {
+            var userIdValue = User.FindFirstValue("sub");
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            var donations = await _donationService.GetMyDonationsAsync(userId);
+
+            return Ok(donations);
         }
     }
 }
