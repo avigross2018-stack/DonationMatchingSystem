@@ -33,6 +33,8 @@ namespace BackendService.Data
                 .HasForeignKey<Donor>(d => d.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+
+
             // User -> Recipient (One-to-One)
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Recipient)
@@ -104,6 +106,10 @@ namespace BackendService.Data
                 .Property(r => r.Status)
                 .HasMaxLength(20)
                 .IsRequired();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Phone)
+                .IsUnique();
         }
     }
 }

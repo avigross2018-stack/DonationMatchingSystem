@@ -1,5 +1,9 @@
 
 using BackendService.Data;
+using BackendService.Models;
+using BackendService.Repos;
+using BackendService.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +24,15 @@ var sqlConnection = $"Server={mysqlHost};Port={mysqlPort};Database={mysqlDatabas
 
 builder.Services.AddDbContext<AppDbContext>(op =>
     op.UseMySql(sqlConnection, ServerVersion.AutoDetect(sqlConnection)));
+
+// Repos DI
+builder.Services.AddScoped<IUserRepo, UserRepo>();
+builder.Services.AddScoped<IDonorRepo, DonorRepo>();
+
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<JwtTokenService>();
 
 var app = builder.Build();
 
