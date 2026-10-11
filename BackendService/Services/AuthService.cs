@@ -16,17 +16,20 @@ namespace BackendService.Services
         private readonly IDonorRepo _donorRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly JwtTokenService _jwtTokenService;
         public AuthService(
             IUserRepo userRepo,
             IDonorRepo donorRepo,
             IUnitOfWork unitOfWork,
-            IPasswordHasher<User> passwordHasher
+            IPasswordHasher<User> passwordHasher,
+            JwtTokenService jwtTokenService
         )
         {
             _userRepo = userRepo;
             _donorRepo = donorRepo;
             _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
+            _jwtTokenService = jwtTokenService;
         }
 
         public async Task<int> RegisterDonorAsync(RegisterDonorDto dto)
@@ -67,7 +70,7 @@ namespace BackendService.Services
             return user.Id;
         }
 
-        public async Task<User?> LoginAsync(LoginDto dto)
+        public async Task<string?> LoginAsync(LoginDto dto)
         {
             var user = await _userRepo.GetByPhoneAsync(dto.Phone);
 
@@ -87,7 +90,7 @@ namespace BackendService.Services
                 return null;
             }
 
-            return user;
+            return _jwtTokenService.GenerateToken(user);
         }
     }
 }

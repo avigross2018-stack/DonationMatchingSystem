@@ -41,5 +41,25 @@ namespace BackendService.Controllers
                 });
             }
         }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        {
+            var token = await _authService.LoginAsync(dto);
+
+            if (token == null)
+            {
+                return Unauthorized(new
+                {
+                    Message = "Invalid phone or password"
+                });
+            }
+
+            return Ok(new
+            {
+                AccessToken = token,
+                TokenType = "Bearer"
+            });
+        }
     }
 }
