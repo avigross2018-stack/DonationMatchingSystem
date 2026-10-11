@@ -21,17 +21,17 @@ namespace BackendService.Services
 
         public string GenerateToken(User user)
         {
-            var key = _configuration["Jwt:Key"]
+            var key = _configuration["JWT:KEY"]
                 ?? throw new InvalidOperationException("JWT key is missing");
 
-            var issuer = _configuration["Jwt:Issuer"]
+            var issuer = _configuration["JWT:ISSUER"]
                 ?? throw new InvalidOperationException("JWT issuer is missing");
 
-            var audience = _configuration["Jwt:Audience"]
+            var audience = _configuration["JWT:AUDIENCE"]
                 ?? throw new InvalidOperationException("JWT audience is missing");
 
             var expirationMinutes = _configuration.GetValue<int>(
-                "Jwt:ExpirationMinutes");
+                "JWT:EXPIRATION_MINUTES");
 
             if (expirationMinutes <= 0)
             {
