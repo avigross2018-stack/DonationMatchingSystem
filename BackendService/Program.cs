@@ -18,7 +18,7 @@ var mysqlDatabase = builder.Configuration["MYSQL_DATABASE"];
 var sqlConnection = $"Server={mysqlHost};Port={mysqlPort};Database={mysqlDatabase};User={mysqlUser};Password={mysqlPassword};";
 
 
-builder.Services.AddDbContext<DonationDbContext>(op =>
+builder.Services.AddDbContext<AppDbContext>(op =>
     op.UseMySql(sqlConnection, ServerVersion.AutoDetect(sqlConnection)));
 
 var app = builder.Build();
