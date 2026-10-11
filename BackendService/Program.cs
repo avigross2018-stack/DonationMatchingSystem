@@ -9,12 +9,28 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Enter your JWT token"
+    });
+
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
+});
 
 var mysqlHost = builder.Configuration["MYSQL_HOST"];
 var mysqlPort = builder.Configuration["MYSQL_PORT"];
@@ -39,15 +55,19 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<JwtTokenService>();
 
 
-var jwtKey = builder.Configuration["Jwt:Key"]
+var jwtKey = builder.Configuration["JWT:KEY"]
     ?? throw new InvalidOperationException("JWT key is missing");
 
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+var jwtIssuer = builder.Configuration["JWT:ISSUER"]
     ?? throw new InvalidOperationException("JWT issuer is missing");
 
-var jwtAudience = builder.Configuration["Jwt:Audience"]
+var jwtAudience = builder.Configuration["JWT:AUDIENCE"]
     ?? throw new InvalidOperationException("JWT audience is missing");
 
+
+// System.Console.WriteLine($"jwtKey {jwtKey}");
+// System.Console.WriteLine($"jwtIssuer {jwtIssuer}");
+// System.Console.WriteLine($"jwtAudience {jwtAudience}");
 builder.Services.AddAuthentication(
     JwtBearerDefaults.AuthenticationScheme
 ).AddJwtBearer(op =>
@@ -58,6 +78,9 @@ builder.Services.AddAuthentication(
     {
         ValidateIssuer = true,
         ValidIssuer = jwtIssuer,
+
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
 
         ValidateLifetime = true,
 
