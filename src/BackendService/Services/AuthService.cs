@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using BackendService.Data;
 using BackendService.DTOs;
+using BackendService.Exceptions;
 using BackendService.Models;
 using BackendService.Repos;
 using Microsoft.AspNetCore.Identity;
@@ -36,9 +37,9 @@ namespace BackendService.Services
         {
             var existingUser = await _userRepo.GetByPhoneAsync(dto.Phone);
 
-            if(existingUser != null)
+            if (existingUser != null)
             {
-                throw new InvalidOperationException(
+                throw new ConflictException(
                     "A user with this phone number already exists."
                 );
             }
