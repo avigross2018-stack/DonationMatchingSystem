@@ -18,9 +18,9 @@ namespace BackendService.Models
         [Required]
         public int PopulationTypeId { get; set; }
 
-        [Required]
+
         [MaxLength(250)]
-        public string RequestReason { get; set; } = string.Empty;
+        public string? RequestReason { get; set; }
 
         [Column(TypeName = "decimal(10,2)")]
         [Range(0, double.MaxValue)]

@@ -10,10 +10,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using BackendService.ExceptionHandling;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -48,11 +51,15 @@ builder.Services.AddDbContext<AppDbContext>(op =>
 // Repos DI
 builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<IDonorRepo, DonorRepo>();
+builder.Services.AddScoped<IDonationRepo, DonationRepo>();
+builder.Services.AddScoped<IPopulationTypeRepo, PopulationTypeRepo>();
 
+// Services DI
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<DonationService>();
 
 
 var jwtKey = builder.Configuration["JWT:KEY"]
@@ -99,6 +106,8 @@ builder.Services.AddAuthentication(
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

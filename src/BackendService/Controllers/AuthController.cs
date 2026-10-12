@@ -13,34 +13,26 @@ namespace BackendService.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AuthService _authService;
+
         public AuthController(AuthService authService)
         {
             _authService = authService;
         }
 
+
         [HttpPost("register/donor")]
         public async Task<IActionResult> RegisterDonor(
-            [FromBody] RegisterDonorDto dto
-        )
+            [FromBody] RegisterDonorDto dto)
         {
-            try
-            {
-                int userId = await _authService.RegisterDonorAsync(dto);
+            int userId = await _authService.RegisterDonorAsync(dto);
 
-                return StatusCode(StatusCodes.Status201Created, new
-                {
-                    Message = "Donor registered successfully",
-                    UserId = userId
-                });
-            }
-            catch(InvalidOperationException ex)
+            return StatusCode(StatusCodes.Status201Created, new
             {
-                return Conflict(new
-                {
-                    Message = ex.Message
-                });
-            }
+                Message = "Donor registered successfully",
+                UserId = userId
+            });
         }
+
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
