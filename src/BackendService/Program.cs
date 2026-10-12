@@ -63,6 +63,8 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<DonationService>();
 builder.Services.AddScoped<DonationMatchingService>();
+builder.Services.AddSingleton<MatchingEventQueue>();
+builder.Services.AddHostedService<DonationMatchingWorker>();
 
 
 var jwtKey = builder.Configuration["JWT:KEY"]

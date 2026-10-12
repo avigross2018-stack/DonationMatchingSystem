@@ -71,13 +71,15 @@ namespace BackendService.Services
                 return false;
 
             var recipient = await _recipientRepo
-                .GetByIdAsync(recipientId);
+                .GetByIdForUpdateAsync(
+                    recipientId,
+                    cancellationToken);
 
             if (recipient == null)
                 return false;
 
             // Check recipient activity
-            if (!recipient.User.IsActive)
+            if (!await _recipientRepo.IsRecipientActiveAsync(recipientId))
                 return false;
 
             // Check donor activity
@@ -141,6 +143,107 @@ namespace BackendService.Services
             await transaction.CommitAsync(cancellationToken);
 
             return true;
-        }      
+        }
+
+        public async Task<int> MatchDonationAsync(
+            int donationId,
+            CancellationToken cancellationToken = default)
+        {
+            var donation = await _donationRepo.GetByIdAsync(donationId);
+
+            if (donation == null)
+                return 0;
+
+            var recipients = await _recipientRepo
+                .GetEligibleRecipientsAsync(cancellationToken);
+
+            int matchesCreated = 0;
+
+            foreach (var recipient in recipients)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (recipient.PopulationTypeId != donation.PopulationTypeId)
+                    continue;
+
+                var created = await TryCreateMatchAsync(
+                    donationId,
+                    recipient.Id,
+                    cancellationToken);
+
+                if (created)
+                    matchesCreated++;
+            }
+
+            // return amount of matches
+            return matchesCreated;
+        }
+
+        public async Task<int> MatchRecipientAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            var recipient = await _recipientRepo
+                .GetByIdNoTrackingAsync(recipientId, cancellationToken);
+
+            if(recipient == null ||
+                !recipient.User.IsActive ||
+                recipient.RemainingEligibility <= 0)
+            {
+                return 0;
+            }
+
+            var donations = await _donationRepo
+                .GetAvailableDonationsAsync(
+                    DateTime.UtcNow,
+                    cancellationToken
+                );
+
+            int matchesCreated = 0;
+
+            foreach (var donation in donations)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if(donation.PopulationTypeId != recipient.PopulationTypeId)
+                    continue;
+                
+                var created = await TryCreateMatchAsync(
+                    donation.Id,
+                    recipientId,
+                    cancellationToken
+                );
+
+                if(created)
+                    matchesCreated++;
+                    
+            }
+
+            return matchesCreated;
+        }
+
+        public async Task<int> ScanAllAsync(
+            CancellationToken cancellationToken = default)
+        {
+            var donations = await _donationRepo
+                .GetAvailableDonationsAsync(
+                    DateTime.UtcNow,
+                    cancellationToken);
+
+            int totalMatchesCreated = 0;
+
+            foreach (var donation in donations)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var matchesCreated = await MatchDonationAsync(
+                    donation.Id,
+                    cancellationToken);
+
+                totalMatchesCreated += matchesCreated;
+            }
+
+            return totalMatchesCreated;
+        }
     }
 }

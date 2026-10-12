@@ -19,6 +19,7 @@ namespace BackendService.Services
         private readonly IUserRepo _userRepo;
         private readonly IRedemptionRepo _redemptionRepo;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly MatchingEventQueue _matchingQueue;
 
         public DonationService(
             IDonationRepo donationRepo,
@@ -26,7 +27,8 @@ namespace BackendService.Services
             IPopulationTypeRepo populationTypeRepo,
             IUserRepo userRepo,
             IRedemptionRepo redemptionRepo,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            MatchingEventQueue matchingQueue)
         {
             _donationRepo = donationRepo;
             _donorRepo = donorRepo;
@@ -34,6 +36,7 @@ namespace BackendService.Services
             _userRepo = userRepo;
             _redemptionRepo = redemptionRepo;
             _unitOfWork = unitOfWork;
+            _matchingQueue = matchingQueue;
         }
 
         public async Task<int> CreateDonationAsync(
@@ -99,6 +102,12 @@ namespace BackendService.Services
             await _donationRepo.AddAsync(donation);
 
             await _unitOfWork.SaveChangesAsync();
+            
+            // Notify matching worker about the new donation
+            await _matchingQueue.EnqueueAsync(
+                new MatchingEvent(
+                    MatchingEventType.DonationCreated,
+                    donation.Id));
 
             return donation.Id;
         }

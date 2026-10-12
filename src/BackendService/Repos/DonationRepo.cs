@@ -43,6 +43,7 @@ namespace BackendService.Repos
         public async Task<Donation?> GetByIdAsync(int id)
         {
             return await _appDb.Donations
+                .AsNoTracking()
                 .FirstOrDefaultAsync(d => d.Id == id);
         }
 
@@ -57,10 +58,17 @@ namespace BackendService.Repos
             int donationId,
             CancellationToken cancellationToken = default)
         {
-            return await _appDb.Donations
+            var query = _appDb.Donations
                 .FromSqlInterpolated(
-                    $"SELECT * FROM Donations WHERE Id = {donationId} FOR UPDATE")
-                .FirstOrDefaultAsync(cancellationToken);
+                    $"SELECT * FROM `Donations` WHERE `Id` = {donationId} FOR UPDATE")
+                .AsAsyncEnumerable();
+
+            await foreach (var donation in query.WithCancellation(cancellationToken))
+            {
+                return donation;
+            }
+
+            return null;
         }
     }
 }
