@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using BackendService.DTOs;
 using BackendService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace BackendService.Controllers
 {
@@ -23,41 +18,29 @@ namespace BackendService.Controllers
             _donationService = donationService;
         }
 
+
         [HttpPost]
         public async Task<IActionResult> CreateDonation(
             [FromBody] CreateDonationDto dto)
         {
             var userIdValue = User.FindFirstValue("sub");
 
+            // Return 401 if the authenticated user's ID claim is missing or invalid.
             if (!int.TryParse(userIdValue, out int userId))
             {
                 return Unauthorized();
             }
 
-            try
-            {
-                int donationId = await _donationService
-                    .CreateDonationAsync(userId, dto);
+            // Business exceptions are handled by the global exception handler.
+            int donationId = await _donationService
+                .CreateDonationAsync(userId, dto);
 
-                return StatusCode(StatusCodes.Status201Created, new
-                {
-                    Message = "Donation created successfully",
-                    DonationId = donationId
-                });
-            }
-            catch (ArgumentException ex)
+            return StatusCode(StatusCodes.Status201Created, new
             {
-                return BadRequest(new
-                {
-                    Message = ex.Message
-                });
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Forbid();
-            }
+                Message = "Donation created successfully",
+                DonationId = donationId
+            });
         }
-
         [HttpGet("show-donations")]
         public async Task<IActionResult> GetMyDonations()
         {

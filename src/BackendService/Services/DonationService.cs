@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using BackendService.Data;
 using BackendService.DTOs;
+using BackendService.Exceptions;
 using BackendService.Models;
 using BackendService.Repos;
 
@@ -44,7 +45,7 @@ namespace BackendService.Services
 
             if (user == null || !user.IsActive || user.UserType != "DONOR")
             {
-                throw new UnauthorizedAccessException(
+                throw new ForbiddenException(
                     "User is not an active donor.");
             }
 
@@ -52,7 +53,7 @@ namespace BackendService.Services
 
             if (donor == null)
             {
-                throw new InvalidOperationException(
+                throw new ResourceNotFoundException(
                     "Donor profile not found.");
             }
 
@@ -61,7 +62,7 @@ namespace BackendService.Services
 
             if (populationType == null || !populationType.IsActive)
             {
-                throw new ArgumentException(
+                throw new BusinessValidationException(
                     "Population type is invalid or inactive.");
             }
 
@@ -69,7 +70,7 @@ namespace BackendService.Services
             if (dto.TotalAmount <= 0 ||
                 dto.MaxAmountPerRecipient <= 0)
             {
-                throw new ArgumentException(
+                throw new BusinessValidationException(
                     "Donation amounts must be positive.");
             }
 
@@ -77,7 +78,7 @@ namespace BackendService.Services
 
             if (dto.ExpirationDate.ToUniversalTime() <= now)
             {
-                throw new ArgumentException(
+                throw new BusinessValidationException(
                     "Expiration date must be in the future.");
             }
 
@@ -108,7 +109,8 @@ namespace BackendService.Services
 
             if (donor == null)
             {
-                throw new InvalidOperationException("Donor profile not found.");
+                throw new ResourceNotFoundException(
+                    "Donor profile not found.");
             }
 
             var donations = await _donationRepo.GetByDonorIdAsync(donor.Id);
@@ -137,16 +139,8 @@ namespace BackendService.Services
 
             if (donor == null || !donor.User.IsActive)
             {
-                throw new UnauthorizedAccessException(
-                    "Donor profile not found or inactive.");
-            }
-
-            // Validate input
-            if (dto.TotalAmount <= 0 ||
-                dto.MaxAmountPerRecipient <= 0)
-            {
-                throw new ArgumentException(
-                    "Amounts must be positive.");
+                throw new ResourceNotFoundException(
+                    "Donor profile not found.");
             }
 
             var utcNow = DateTime.UtcNow;
@@ -169,14 +163,14 @@ namespace BackendService.Services
 
             if (donation == null)
             {
-                throw new KeyNotFoundException(
+                throw new ResourceNotFoundException(
                     "Donation not found.");
             }
 
             // Verify ownership
             if (donation.DonorId != donor.Id)
             {
-                throw new UnauthorizedAccessException(
+                throw new ForbiddenException(
                     "You cannot edit this donation.");
             }
 
@@ -184,17 +178,31 @@ namespace BackendService.Services
             if (donation.Status != "ACTIVE" ||
                 donation.ExpirationDate <= DateTime.UtcNow)
             {
-                throw new InvalidOperationException(
+                throw new ConflictException(
                     "Donation is not active or has expired.");
             }
 
-            // Calculate already redeemed amount
+            // Validate input
+            if (dto.TotalAmount <= 0 ||
+                dto.MaxAmountPerRecipient <= 0)
+            {
+                throw new BusinessValidationException(
+                    "Amounts must be positive.");
+            }
+
+            if (dto.ExpirationDate.ToUniversalTime() <= DateTime.UtcNow)
+            {
+                throw new BusinessValidationException(
+                    "Expiration date must be in the future.");
+            }
+
+            // Calculate the amount already redeemed
             decimal redeemedAmount =
                 donation.TotalAmount - donation.RemainingAmount;
 
             if (dto.TotalAmount < redeemedAmount)
             {
-                throw new InvalidOperationException(
+                throw new ConflictException(
                     "Total amount cannot be lower than already redeemed amount.");
             }
 
