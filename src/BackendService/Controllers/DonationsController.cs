@@ -108,5 +108,34 @@ namespace BackendService.Controllers
                 return Conflict(new { Message = ex.Message });
             }
         }
+
+        [HttpPost("{id:int}/cancel")]
+        public async Task<IActionResult> CancelDonation(int id)
+        {
+            var userIdValue = User.FindFirstValue("sub");
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                await _donationService.CancelDonationAsync(userId, id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+        }
     }
 }

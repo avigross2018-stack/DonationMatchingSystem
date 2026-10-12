@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using BackendService.Data;
@@ -15,6 +16,7 @@ namespace BackendService.Services
         private readonly IDonorRepo _donorRepo;
         private readonly IPopulationTypeRepo _populationTypeRepo;
         private readonly IUserRepo _userRepo;
+        private readonly IRedemptionRepo _redemptionRepo;
         private readonly IUnitOfWork _unitOfWork;
 
         public DonationService(
@@ -22,12 +24,14 @@ namespace BackendService.Services
             IDonorRepo donorRepo,
             IPopulationTypeRepo populationTypeRepo,
             IUserRepo userRepo,
+            IRedemptionRepo redemptionRepo,
             IUnitOfWork unitOfWork)
         {
             _donationRepo = donationRepo;
             _donorRepo = donorRepo;
             _populationTypeRepo = populationTypeRepo;
             _userRepo = userRepo;
+            _redemptionRepo = redemptionRepo;
             _unitOfWork = unitOfWork;
         }
 
@@ -131,14 +135,37 @@ namespace BackendService.Services
             // Find the authenticated donor
             var donor = await _donorRepo.GetByUserIdAsync(userId);
 
-            if (donor == null)
+            if (donor == null || !donor.User.IsActive)
             {
                 throw new UnauthorizedAccessException(
-                    "Donor profile not found.");
+                    "Donor profile not found or inactive.");
             }
 
-            // Find the donation
-            var donation = await _donationRepo.GetByIdAsync(donationId);
+            // Validate input
+            if (dto.TotalAmount <= 0 ||
+                dto.MaxAmountPerRecipient <= 0)
+            {
+                throw new ArgumentException(
+                    "Amounts must be positive.");
+            }
+
+            var utcNow = DateTime.UtcNow;
+            var expirationDate = dto.ExpirationDate.ToUniversalTime();
+
+            if (expirationDate <= utcNow)
+            {
+                throw new ArgumentException(
+                    "Expiration date must be in the future.");
+            }
+
+            // Begin transaction
+            await using var transaction =
+                await _unitOfWork.BeginTransactionAsync(
+                    IsolationLevel.ReadCommitted);
+
+            // Lock the donation row
+            var donation = await _donationRepo
+                .GetByIdForUpdateAsync(donationId);
 
             if (donation == null)
             {
@@ -153,7 +180,7 @@ namespace BackendService.Services
                     "You cannot edit this donation.");
             }
 
-            // Only active and non-expired donations can be edited
+            // Validate current donation status
             if (donation.Status != "ACTIVE" ||
                 donation.ExpirationDate <= DateTime.UtcNow)
             {
@@ -161,21 +188,7 @@ namespace BackendService.Services
                     "Donation is not active or has expired.");
             }
 
-            // Validate input
-            if (dto.TotalAmount <= 0 ||
-                dto.MaxAmountPerRecipient <= 0)
-            {
-                throw new ArgumentException(
-                    "Amounts must be positive.");
-            }
-
-            if (dto.ExpirationDate.ToUniversalTime() <= DateTime.UtcNow)
-            {
-                throw new ArgumentException(
-                    "Expiration date must be in the future.");
-            }
-
-            // Calculate the amount already redeemed
+            // Calculate already redeemed amount
             decimal redeemedAmount =
                 donation.TotalAmount - donation.RemainingAmount;
 
@@ -185,14 +198,78 @@ namespace BackendService.Services
                     "Total amount cannot be lower than already redeemed amount.");
             }
 
-            // Update the donation
+            // Update donation
             donation.TotalAmount = dto.TotalAmount;
-            donation.RemainingAmount = dto.TotalAmount - redeemedAmount;
-            donation.MaxAmountPerRecipient = dto.MaxAmountPerRecipient;
+            donation.RemainingAmount =
+                dto.TotalAmount - redeemedAmount;
+
+            donation.MaxAmountPerRecipient =
+                dto.MaxAmountPerRecipient;
+
             donation.Description = dto.Description;
-            donation.ExpirationDate = dto.ExpirationDate.ToUniversalTime();
+            donation.ExpirationDate = expirationDate;
 
             await _unitOfWork.SaveChangesAsync();
+
+            await transaction.CommitAsync();
         }
+
+        public async Task CancelDonationAsync(int userId, int donationId)
+        {
+            // Find authenticated donor
+            var donor = await _donorRepo.GetByUserIdAsync(userId);
+
+            if (donor == null)
+            {
+                throw new UnauthorizedAccessException(
+                    "Donor profile not found.");
+            }
+
+            // Find donation
+            var donation = await _donationRepo.GetByIdAsync(donationId);
+
+            if (donation == null)
+            {
+                throw new KeyNotFoundException(
+                    "Donation not found.");
+            }
+
+            // Verify ownership
+            if (donation.DonorId != donor.Id)
+            {
+                throw new UnauthorizedAccessException(
+                    "You cannot cancel this donation.");
+            }
+
+            // Validate status
+            if (donation.Status != "ACTIVE")
+            {
+                throw new InvalidOperationException(
+                    "Only active donations can be cancelled.");
+            }
+
+            if (donation.ExpirationDate <= DateTime.UtcNow)
+            {
+                throw new InvalidOperationException(
+                    "Donation has already expired.");
+            }
+
+            // Find pending redemptions
+            var pendingRedemptions = await _redemptionRepo
+                .GetPendingByDonationIdAsync(donationId);
+
+            // Cancel donation
+            donation.Status = "CANCELLED";
+
+            // Cancel pending redemptions
+            foreach (var redemption in pendingRedemptions)
+            {
+                redemption.Status = "CANCELLED";
+            }
+
+            // Save all changes together
+            await _unitOfWork.SaveChangesAsync();
+        }
+
     }
 }
