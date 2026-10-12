@@ -54,6 +54,7 @@ builder.Services.AddScoped<IDonorRepo, DonorRepo>();
 builder.Services.AddScoped<IDonationRepo, DonationRepo>();
 builder.Services.AddScoped<IPopulationTypeRepo, PopulationTypeRepo>();
 builder.Services.AddScoped<IRecipientRepo, RecipientRepo>();
+builder.Services.AddScoped<IAdminRepo, AdminRepo>();
 builder.Services.AddScoped<IRedemptionRepo, RedemptionRepo>();
 
 // Services DI
@@ -109,6 +110,41 @@ builder.Services.AddAuthentication(
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Seed the initial admin account on startup (idempotent)
+using (var scope = app.Services.CreateScope())
+{
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+    // Read from env vars: ADMIN_SEED__NAME / ADMIN_SEED__PHONE / ADMIN_SEED__PASSWORD
+    var adminName = config["ADMIN_SEED:NAME"];
+    var adminPhone = config["ADMIN_SEED:PHONE"];
+    var adminPassword = config["ADMIN_SEED:PASSWORD"];
+
+    if (string.IsNullOrWhiteSpace(adminName) ||
+        string.IsNullOrWhiteSpace(adminPhone) ||
+        string.IsNullOrWhiteSpace(adminPassword))
+    {
+        // Missing config is not fatal: the app just starts without seeding
+        app.Logger.LogWarning(
+            "Admin seed skipped: ADMIN_SEED settings are missing.");
+    }
+    else
+    {
+        // AuthService is scoped, so it must be resolved inside a scope
+        var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
+
+        var created = await authService.EnsureAdminExistsAsync(
+            adminName, adminPhone, adminPassword);
+
+        // Log only the phone, never the password
+        app.Logger.LogInformation(
+            created
+                ? "Admin seeded successfully (phone: {Phone})."
+                : "Admin seed skipped: phone {Phone} already exists.",
+            adminPhone);
+    }
+}
 
 app.UseExceptionHandler();
 

@@ -39,6 +39,7 @@ ScaffoldingReadMe.txt
 # dotenv environment variables file
 .env
 
+
 # Others
 ~$*
 *~
@@ -55,3 +56,19 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+
+# macOS
+.DS_Store
+
+# JetBrains Rider
+.idea/
+*.DotSettings.user
+
+# Python virtual environments
+.venv/
+.venv*/
+__pycache__/
+
+# Archives (project backups / uploads)
+*.zip
