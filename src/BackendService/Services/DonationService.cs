@@ -122,5 +122,77 @@ namespace BackendService.Services
                 Status = d.Status
             }).ToList();
         }
+
+        public async Task UpdateDonationAsync(
+            int userId,
+            int donationId,
+            UpdateDonationDto dto)
+        {
+            // Find the authenticated donor
+            var donor = await _donorRepo.GetByUserIdAsync(userId);
+
+            if (donor == null)
+            {
+                throw new UnauthorizedAccessException(
+                    "Donor profile not found.");
+            }
+
+            // Find the donation
+            var donation = await _donationRepo.GetByIdAsync(donationId);
+
+            if (donation == null)
+            {
+                throw new KeyNotFoundException(
+                    "Donation not found.");
+            }
+
+            // Verify ownership
+            if (donation.DonorId != donor.Id)
+            {
+                throw new UnauthorizedAccessException(
+                    "You cannot edit this donation.");
+            }
+
+            // Only active and non-expired donations can be edited
+            if (donation.Status != "ACTIVE" ||
+                donation.ExpirationDate <= DateTime.UtcNow)
+            {
+                throw new InvalidOperationException(
+                    "Donation is not active or has expired.");
+            }
+
+            // Validate input
+            if (dto.TotalAmount <= 0 ||
+                dto.MaxAmountPerRecipient <= 0)
+            {
+                throw new ArgumentException(
+                    "Amounts must be positive.");
+            }
+
+            if (dto.ExpirationDate.ToUniversalTime() <= DateTime.UtcNow)
+            {
+                throw new ArgumentException(
+                    "Expiration date must be in the future.");
+            }
+
+            // Calculate the amount already redeemed
+            decimal redeemedAmount =
+                donation.TotalAmount - donation.RemainingAmount;
+
+            if (dto.TotalAmount < redeemedAmount)
+            {
+                throw new InvalidOperationException(
+                    "Total amount cannot be lower than already redeemed amount.");
+            }
+
+            // Update the donation
+            donation.TotalAmount = dto.TotalAmount;
+            donation.RemainingAmount = dto.TotalAmount - redeemedAmount;
+            donation.MaxAmountPerRecipient = dto.MaxAmountPerRecipient;
+            donation.Description = dto.Description;
+            donation.ExpirationDate = dto.ExpirationDate.ToUniversalTime();
+
+            await _unitOfWork.SaveChangesAsync();
+        }
     }
 }
