@@ -21,6 +21,18 @@ namespace BackendService.Repos
             await _appDb.Donations.AddAsync(donation);
         }
 
+        public async Task<List<Donation>> GetAvailableDonationsAsync(DateTime utcNow, CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Donations
+                .AsNoTracking()
+                .Where(d =>
+                    d.Status == "ACTIVE" &&
+                    d.ExpirationDate > utcNow &&
+                    d.RemainingAmount > 0 &&
+                    d.Donor.User.IsActive)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<List<Donation>> GetByDonorIdAsync(int donorId)
         {
             return await _appDb.Donations
@@ -32,6 +44,23 @@ namespace BackendService.Repos
         {
             return await _appDb.Donations
                 .FirstOrDefaultAsync(d => d.Id == id);
+        }
+
+        public async Task<List<Donation>> GetExpiredActiveDonationsAsync(DateTime utcNow, CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Donations
+                .Where(d => d.Status == "ACTIVE" && d.ExpirationDate <= utcNow)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<Donation?> GetByIdForUpdateAsync(
+            int donationId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Donations
+                .FromSqlInterpolated(
+                    $"SELECT * FROM Donations WHERE Id = {donationId} FOR UPDATE")
+                .FirstOrDefaultAsync(cancellationToken);
         }
     }
 }

@@ -21,7 +21,7 @@ def main():
 
         queries = [
             """
-            CREATE TABLE IF NOT EXISTS PopulationType (
+            CREATE TABLE IF NOT EXISTS PopulationTypes (
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 Name VARCHAR(50) NOT NULL UNIQUE,
                 Description VARCHAR(250),
@@ -29,7 +29,7 @@ def main():
             )
             """,
             """
-            CREATE TABLE IF NOT EXISTS `User` (
+            CREATE TABLE IF NOT EXISTS `Users` (
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 Name VARCHAR(50) NOT NULL,
                 Phone VARCHAR(50) NOT NULL UNIQUE,
@@ -44,25 +44,25 @@ def main():
             )
             """,
             """
-            CREATE TABLE IF NOT EXISTS Donor (
+            CREATE TABLE IF NOT EXISTS Donors (
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 UserId INT NOT NULL UNIQUE,
 
                 FOREIGN KEY (UserId)
-                    REFERENCES `User`(Id)
+                    REFERENCES `Users`(Id)
             )
             """,
             """
-            CREATE TABLE IF NOT EXISTS Admin (
+            CREATE TABLE IF NOT EXISTS Admins (
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 UserId INT NOT NULL UNIQUE,
 
                 FOREIGN KEY (UserId)
-                    REFERENCES `User`(Id)
+                    REFERENCES `Users`(Id)
             )
             """,
             """
-            CREATE TABLE IF NOT EXISTS Recipient (
+            CREATE TABLE IF NOT EXISTS Recipients (
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 UserId INT NOT NULL UNIQUE,
                 PopulationTypeId INT NOT NULL,
@@ -73,10 +73,10 @@ def main():
                 RemainingEligibility DECIMAL(10,2) NOT NULL DEFAULT 0,
 
                 FOREIGN KEY (UserId)
-                    REFERENCES `User`(Id),
+                    REFERENCES `Users`(Id),
 
                 FOREIGN KEY (PopulationTypeId)
-                    REFERENCES PopulationType(Id),
+                    REFERENCES PopulationTypes(Id),
 
                 CONSTRAINT chk_recipient_income
                     CHECK (IncomeAmount >= 0),
@@ -93,7 +93,7 @@ def main():
             )
             """,
             """
-            CREATE TABLE IF NOT EXISTS Donation (
+            CREATE TABLE IF NOT EXISTS Donations (
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 DonorId INT NOT NULL,
                 PopulationTypeId INT NOT NULL,
@@ -111,10 +111,10 @@ def main():
                 ) NOT NULL DEFAULT 'ACTIVE',
 
                 FOREIGN KEY (DonorId)
-                    REFERENCES Donor(Id),
+                    REFERENCES Donors(Id),
 
                 FOREIGN KEY (PopulationTypeId)
-                    REFERENCES PopulationType(Id),
+                    REFERENCES PopulationTypes(Id),
 
                 CONSTRAINT chk_donation_amount
                     CHECK (
@@ -126,7 +126,7 @@ def main():
             )
             """,
             """
-            CREATE TABLE IF NOT EXISTS Redemption (
+            CREATE TABLE IF NOT EXISTS Redemptions (
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 DonationId INT NOT NULL,
                 RecipientId INT NOT NULL,
@@ -142,13 +142,13 @@ def main():
                 ) NOT NULL DEFAULT 'PENDING',
 
                 FOREIGN KEY (DonationId)
-                    REFERENCES Donation(Id),
+                    REFERENCES Donations(Id),
 
                 FOREIGN KEY (RecipientId)
-                    REFERENCES Recipient(Id),
+                    REFERENCES Recipients(Id),
 
                 FOREIGN KEY (HandledByAdminId)
-                    REFERENCES Admin(Id),
+                    REFERENCES Admins(Id),
 
                 CONSTRAINT chk_redemption_amount
                     CHECK (Amount >= 0)

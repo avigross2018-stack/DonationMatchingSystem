@@ -55,5 +55,70 @@ namespace BackendService.Controllers
 
             return Ok(donations);
         }
+
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateDonation(
+            int id,
+            [FromBody] UpdateDonationDto dto)
+        {
+            var userIdValue = User.FindFirstValue("sub");
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                await _donationService.UpdateDonationAsync(userId, id, dto);
+
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id:int}/cancel")]
+        public async Task<IActionResult> CancelDonation(int id)
+        {
+            var userIdValue = User.FindFirstValue("sub");
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                await _donationService.CancelDonationAsync(userId, id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { Message = ex.Message });
+            }
+        }
     }
 }
