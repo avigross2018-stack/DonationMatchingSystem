@@ -19,13 +19,21 @@ namespace BackendService.Services
         private readonly IPasswordHasher<User> _passwordHasher;
         private readonly JwtTokenService _jwtTokenService;
         private readonly IAdminRepo _adminRepo;
+        private readonly IRecipientRepo _recipientRepo;
+        private readonly IPopulationTypeRepo _populationTypeRepo;
+        private readonly EligibilityService _eligibilityService;
+        private readonly MatchingEventQueue _matchingQueue;
         public AuthService(
             IUserRepo userRepo,
             IDonorRepo donorRepo,
             IAdminRepo adminRepo,
             IUnitOfWork unitOfWork,
             IPasswordHasher<User> passwordHasher,
-            JwtTokenService jwtTokenService
+            JwtTokenService jwtTokenService,
+            IRecipientRepo recipientRepo,
+            IPopulationTypeRepo populationTypeRepo,
+            EligibilityService eligibilityService,
+            MatchingEventQueue matchingQueue
         )
         {
             _userRepo = userRepo;
@@ -34,6 +42,10 @@ namespace BackendService.Services
             _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
             _jwtTokenService = jwtTokenService;
+            _recipientRepo = recipientRepo;
+            _populationTypeRepo = populationTypeRepo;
+            _eligibilityService = eligibilityService;
+            _matchingQueue = matchingQueue;
         }
 
         public async Task<int> RegisterDonorAsync(RegisterDonorDto dto)
@@ -147,5 +159,82 @@ namespace BackendService.Services
 
             return _jwtTokenService.GenerateToken(user);
         }
+
+        public async Task<int> RegisterRecipientAsync(RegisterRecipientDto dto)
+        {
+            // Check whether phone number already exists
+            var existingUser = await _userRepo.GetByPhoneAsync(dto.Phone);
+
+            if (existingUser != null)
+            {
+                throw new ConflictException(
+                    "A user with this phone number already exists.");
+            }
+
+            // Validate population type
+            var populationType = await _populationTypeRepo
+                .GetByIdAsync(dto.PopulationTypeId);
+
+            if (populationType == null || !populationType.IsActive)
+            {
+                throw new BusinessValidationException(
+                    "Population type is invalid or inactive.");
+            }
+
+            // Validate eligibility inputs
+            if (dto.IncomeAmount < 0 || dto.AmountOfChildren < 0 ||
+                decimal.Round(dto.IncomeAmount, 2) != dto.IncomeAmount)
+            {
+                throw new BusinessValidationException(
+                    "Income must be non-negative with at most two decimal places, and children count cannot be negative.");
+            }
+
+            // Calculate eligibility
+            decimal eligibility = _eligibilityService.CalculateEligibility(
+                populationType.BaseEligibilityAmount,
+                dto.IncomeAmount,
+                dto.AmountOfChildren);
+
+            // Create user
+            var user = new User
+            {
+                Name = dto.Name,
+                Phone = dto.Phone,
+                UserType = "RECIPIENT",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            user.PasswordHash = _passwordHasher.HashPassword(
+                user,
+                dto.Password);
+
+            // Create recipient profile
+            var recipient = new Recipient
+            {
+                User = user,
+                PopulationTypeId = dto.PopulationTypeId,
+                IncomeAmount = dto.IncomeAmount,
+                AmountOfChildren = dto.AmountOfChildren,
+                RequestReason = dto.RequestReason,
+                EligibilityAmount = eligibility,
+                RemainingEligibility = eligibility
+            };
+
+            // Save user and recipient together
+            await _userRepo.AddAsync(user);
+            await _recipientRepo.AddAsync(recipient);
+
+            await _unitOfWork.SaveChangesAsync();
+
+            // Send matching event after successful save
+            await _matchingQueue.EnqueueAsync(
+                new MatchingEvent(
+                    MatchingEventType.RecipientRegistered,
+                    recipient.Id));
+
+            return user.Id;
+        }
+
     }
 }

@@ -53,5 +53,18 @@ namespace BackendService.Controllers
                 TokenType = "Bearer"
             });
         }
+
+        [HttpPost("register/recipient")]
+        public async Task<IActionResult> RegisterRecipient(
+            [FromBody] RegisterRecipientDto dto)
+        {
+            int userId = await _authService.RegisterRecipientAsync(dto);
+
+            return StatusCode(StatusCodes.Status201Created, new
+            {
+                Message = "Recipient registered successfully",
+                UserId = userId
+            });
+        }
     }
 }
