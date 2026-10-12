@@ -1,9 +1,13 @@
 using BackendService.Data;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 
 namespace BackendService.ApiTests.Infrastructure;
 
@@ -32,6 +36,29 @@ public sealed class TestWebApplicationFactory(string connectionString)
                 ["ADMIN_SEED:PHONE"] = string.Empty,
                 ["ADMIN_SEED:PASSWORD"] = string.Empty
             });
+        });
+        builder.ConfigureServices(services =>
+        {
+            services.PostConfigure<JwtBearerOptions>(
+                JwtBearerDefaults.AuthenticationScheme,
+                options =>
+                {
+                    options.MapInboundClaims = false;
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidIssuer = TestSettings.JwtIssuer,
+                        ValidateAudience = true,
+                        ValidAudience = TestSettings.JwtAudience,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(TestSettings.JwtKey)),
+                        RoleClaimType = ClaimTypes.Role,
+                        NameClaimType = "sub",
+                        ClockSkew = TimeSpan.Zero
+                    };
+                });
         });
     }
 
