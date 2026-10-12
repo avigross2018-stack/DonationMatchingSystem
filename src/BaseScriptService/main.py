@@ -25,7 +25,11 @@ def main():
                 Id INT AUTO_INCREMENT PRIMARY KEY,
                 Name VARCHAR(50) NOT NULL UNIQUE,
                 Description VARCHAR(250),
-                IsActive BOOLEAN NOT NULL DEFAULT TRUE
+                BaseEligibilityAmount DECIMAL(10,2) NOT NULL DEFAULT 0,
+                IsActive BOOLEAN NOT NULL DEFAULT TRUE,
+
+                CONSTRAINT chk_population_base_eligibility
+                    CHECK (BaseEligibilityAmount >= 0)
             )
             """,
             """

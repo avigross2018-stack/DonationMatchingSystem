@@ -163,3 +163,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposes the top-level entry point to WebApplicationFactory without changing
+// production behavior.
+public partial class Program;
