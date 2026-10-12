@@ -216,17 +216,21 @@ namespace BackendService.Services
 
         public async Task CancelDonationAsync(int userId, int donationId)
         {
-            // Find authenticated donor
             var donor = await _donorRepo.GetByUserIdAsync(userId);
 
-            if (donor == null)
+            if (donor == null || !donor.User.IsActive)
             {
                 throw new UnauthorizedAccessException(
-                    "Donor profile not found.");
+                    "Donor profile not found or inactive.");
             }
 
-            // Find donation
-            var donation = await _donationRepo.GetByIdAsync(donationId);
+            await using var transaction =
+                await _unitOfWork.BeginTransactionAsync(
+                    IsolationLevel.ReadCommitted);
+
+            // Lock the donation before checking its state
+            var donation = await _donationRepo
+                .GetByIdForUpdateAsync(donationId);
 
             if (donation == null)
             {
@@ -234,41 +238,33 @@ namespace BackendService.Services
                     "Donation not found.");
             }
 
-            // Verify ownership
             if (donation.DonorId != donor.Id)
             {
                 throw new UnauthorizedAccessException(
                     "You cannot cancel this donation.");
             }
 
-            // Validate status
-            if (donation.Status != "ACTIVE")
+            if (donation.Status != "ACTIVE" ||
+                donation.ExpirationDate <= DateTime.UtcNow)
             {
                 throw new InvalidOperationException(
-                    "Only active donations can be cancelled.");
+                    "Donation is not active or has expired.");
             }
 
-            if (donation.ExpirationDate <= DateTime.UtcNow)
-            {
-                throw new InvalidOperationException(
-                    "Donation has already expired.");
-            }
-
-            // Find pending redemptions
+            // Read pending matches after acquiring the lock
             var pendingRedemptions = await _redemptionRepo
                 .GetPendingByDonationIdAsync(donationId);
 
-            // Cancel donation
             donation.Status = "CANCELLED";
 
-            // Cancel pending redemptions
             foreach (var redemption in pendingRedemptions)
             {
                 redemption.Status = "CANCELLED";
             }
 
-            // Save all changes together
             await _unitOfWork.SaveChangesAsync();
+
+            await transaction.CommitAsync();
         }
 
     }

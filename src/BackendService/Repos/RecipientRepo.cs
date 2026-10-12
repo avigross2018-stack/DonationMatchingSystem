@@ -25,6 +25,7 @@ namespace BackendService.Repos
         public async Task<Recipient?> GetByIdAsync(int id)
         {
             return await _appDb.Recipients
+                .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Id == id);
         }
 

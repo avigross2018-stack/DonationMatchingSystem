@@ -26,5 +26,13 @@ namespace BackendService.Repos
             return await _appDb.Donors
                 .FirstOrDefaultAsync(d => d.UserId == userId);
         }
+
+        public async Task<bool> IsDonorActiveAsync(int donorId)
+        {
+            return await _appDb.Donors
+                .AnyAsync(d =>
+                    d.Id == donorId &&
+                    d.User.IsActive);
+        }
     }
 }

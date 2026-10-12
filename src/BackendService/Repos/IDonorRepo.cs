@@ -10,6 +10,7 @@ namespace BackendService.Repos
     {
         Task AddAsync(Donor donor);
 
-        Task<Donor?> GetByUserIdAsync(int userId);       
+        Task<Donor?> GetByUserIdAsync(int userId);     
+        Task<bool> IsDonorActiveAsync(int donorId);  
     }
 }
