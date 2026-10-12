@@ -14,6 +14,19 @@ namespace BackendService.Repos
 
         Task<Recipient?> GetByIdAsync(int id);  
         Task<List<Recipient>> GetEligibleRecipientsAsync(
-            CancellationToken cancellationToken = default);      
+            CancellationToken cancellationToken = default);
+        Task ReloadAsync(
+            Recipient recipient,
+            CancellationToken cancellationToken = default);
+
+        Task<Recipient?> GetByIdForUpdateAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default);
+
+        Task<Recipient?> GetByIdNoTrackingAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default);
+
+        Task<bool> IsRecipientActiveAsync(int recipientId);
     }
 }

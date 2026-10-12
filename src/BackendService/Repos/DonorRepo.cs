@@ -24,6 +24,7 @@ namespace BackendService.Repos
         public async Task<Donor?> GetByUserIdAsync(int userId)
         {
             return await _appDb.Donors
+                .Include(d => d.User)
                 .FirstOrDefaultAsync(d => d.UserId == userId);
         }
 
