@@ -27,7 +27,10 @@ public sealed class LoginAndAuthorizationTests(ApiTestFixture fixture)
             password = "Passw0rd!"
         });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected 200 but received {(int)response.StatusCode}; WWW-Authenticate: " +
+            string.Join(", ", response.Headers.WwwAuthenticate));
         var body = await response.ReadJsonAsync();
         Assert.Equal("Bearer", body.GetProperty("tokenType").GetString());
         var token = body.GetProperty("accessToken").GetString();
@@ -46,7 +49,8 @@ public sealed class LoginAndAuthorizationTests(ApiTestFixture fixture)
             NameClaimType = JwtRegisteredClaimNames.Sub,
             RoleClaimType = ClaimTypes.Role
         };
-        var principal = new JwtSecurityTokenHandler().ValidateToken(token, validation, out var validated);
+        var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+        var principal = handler.ValidateToken(token, validation, out var validated);
         Assert.Equal(user.Id.ToString(), principal.FindFirstValue(JwtRegisteredClaimNames.Sub));
         Assert.Equal(role, principal.FindFirstValue(ClaimTypes.Role));
         Assert.False(string.IsNullOrWhiteSpace(principal.FindFirstValue(JwtRegisteredClaimNames.Jti)));
@@ -98,7 +102,10 @@ public sealed class LoginAndAuthorizationTests(ApiTestFixture fixture)
 
         using var response = await Client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected 200 but received {(int)response.StatusCode}; WWW-Authenticate: " +
+            string.Join(", ", response.Headers.WwwAuthenticate));
         var body = await response.ReadJsonAsync();
         Assert.Equal(user.Id.ToString(), body.GetProperty("userId").GetString());
         Assert.Equal("DONOR", body.GetProperty("role").GetString());

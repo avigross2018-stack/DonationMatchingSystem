@@ -10,6 +10,7 @@ namespace BackendService.ApiTests.Infrastructure;
 public sealed class ApiTestFixture : IAsyncLifetime
 {
     private MySqlContainer? _container;
+    private readonly Dictionary<string, string?> _originalEnvironment = new();
 
     public TestWebApplicationFactory Factory { get; private set; } = null!;
     public HttpClient Client { get; private set; } = null!;
@@ -46,8 +47,10 @@ public sealed class ApiTestFixture : IAsyncLifetime
             connectionString = _container.GetConnectionString();
         }
 
+        ConfigureProcessEnvironment(connectionString);
         Factory = new TestWebApplicationFactory(connectionString);
         await Factory.EnsureSchemaAsync();
+        await AssertUsesExpectedDatabaseAsync(connectionString);
         Client = Factory.CreateApiClient();
     }
 
@@ -58,6 +61,7 @@ public sealed class ApiTestFixture : IAsyncLifetime
             await Factory.DisposeAsync();
         if (_container is not null)
             await _container.DisposeAsync();
+        RestoreProcessEnvironment();
     }
 
     public async Task ResetAsync()
@@ -81,6 +85,57 @@ public sealed class ApiTestFixture : IAsyncLifetime
         {
             await db.Database.CloseConnectionAsync();
         }
+    }
+
+    private void ConfigureProcessEnvironment(string connectionString)
+    {
+        var parsed = new MySqlConnector.MySqlConnectionStringBuilder(connectionString);
+        SetTemporaryEnvironment("MYSQL_HOST", parsed.Server);
+        SetTemporaryEnvironment("MYSQL_PORT", parsed.Port.ToString());
+        SetTemporaryEnvironment("MYSQL_ROOT_USER", parsed.UserID);
+        SetTemporaryEnvironment("MYSQL_ROOT_PASSWORD", parsed.Password);
+        SetTemporaryEnvironment("MYSQL_DATABASE", parsed.Database);
+        SetTemporaryEnvironment("JWT__KEY", TestSettings.JwtKey);
+        SetTemporaryEnvironment("JWT__ISSUER", TestSettings.JwtIssuer);
+        SetTemporaryEnvironment("JWT__AUDIENCE", TestSettings.JwtAudience);
+        SetTemporaryEnvironment("JWT__EXPIRATION_MINUTES", "15");
+        SetTemporaryEnvironment("ADMIN_SEED__NAME", " ");
+        SetTemporaryEnvironment("ADMIN_SEED__PHONE", " ");
+        SetTemporaryEnvironment("ADMIN_SEED__PASSWORD", " ");
+    }
+
+    private async Task AssertUsesExpectedDatabaseAsync(string connectionString)
+    {
+        var expected = new MySqlConnector.MySqlConnectionStringBuilder(connectionString);
+        await using var scope = Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var actual = new MySqlConnector.MySqlConnectionStringBuilder(
+            db.Database.GetDbConnection().ConnectionString);
+
+        if (!string.Equals(actual.Server, expected.Server, StringComparison.OrdinalIgnoreCase) ||
+            actual.Port != expected.Port ||
+            !string.Equals(actual.Database, expected.Database, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Refusing to run destructive test reset because the application is not " +
+                "connected to the expected isolated MySQL database.");
+        }
+
+        await db.Database.OpenConnectionAsync();
+        await db.Database.CloseConnectionAsync();
+    }
+
+    private void SetTemporaryEnvironment(string key, string value)
+    {
+        _originalEnvironment[key] = Environment.GetEnvironmentVariable(key);
+        Environment.SetEnvironmentVariable(key, value);
+    }
+
+    private void RestoreProcessEnvironment()
+    {
+        foreach (var (key, value) in _originalEnvironment)
+            Environment.SetEnvironmentVariable(key, value);
+        _originalEnvironment.Clear();
     }
 
     public async Task<T> WithDbAsync<T>(Func<AppDbContext, Task<T>> action)

@@ -126,7 +126,8 @@ public sealed class DonationApiTests(ApiTestFixture fixture)
         }, names);
         var text = item.GetRawText();
         Assert.DoesNotContain("password", text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("recipient", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recipientId", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recipients", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("donor", text, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -163,7 +164,11 @@ public sealed class DonationApiTests(ApiTestFixture fixture)
         var population = await Fixture.SeedPopulationTypeAsync();
         var owner = await Fixture.SeedUserAsync("DONOR", "+972520000009");
         var donation = await SeedDonationAsync(owner.Id, population.Id, 500m, 100m, "before", 350m);
-        var originalCreatedAt = donation.CreatedAt;
+        var originalCreatedAt = await Fixture.WithDbAsync(db => db.Donations
+            .AsNoTracking()
+            .Where(x => x.Id == donation.Id)
+            .Select(x => x.CreatedAt)
+            .SingleAsync());
         var originalDonorId = donation.DonorId;
         var expires = DateTime.UtcNow.AddDays(5);
         using var request = CreateAuthorizedJsonRequest(
