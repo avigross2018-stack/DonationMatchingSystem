@@ -56,6 +56,9 @@ builder.Services.AddScoped<IPopulationTypeRepo, PopulationTypeRepo>();
 builder.Services.AddScoped<IRecipientRepo, RecipientRepo>();
 builder.Services.AddScoped<IAdminRepo, AdminRepo>();
 builder.Services.AddScoped<IRedemptionRepo, RedemptionRepo>();
+builder.Services.AddScoped<
+    IAdminDashboardStatisticsRepo,
+    AdminDashboardStatisticsRepo>();
 
 // Services
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -73,6 +76,7 @@ builder.Services.AddHostedService<DonationMatchingWorker>();
 builder.Services.AddScoped<EligibilityService>();
 builder.Services.AddScoped<RecipientService>();
 builder.Services.AddScoped<DonorService>();
+builder.Services.AddScoped<AdminStatisticsService>();
 
 var jwtKey = builder.Configuration["JWT:KEY"]
     ?? throw new InvalidOperationException("JWT key is missing");
