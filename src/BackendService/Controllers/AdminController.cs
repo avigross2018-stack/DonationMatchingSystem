@@ -1,4 +1,3 @@
-
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using BackendService.DTOs;
@@ -65,6 +64,26 @@ namespace BackendService.Controllers
             return Ok(donor);
         }
 
+        [HttpPut("donors/{id:int}")]
+        [ProducesResponseType(typeof(AdminDonorDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<AdminDonorDto>> UpdateDonor(
+            int id,
+            [FromBody] UpdateDonorDto request,
+            CancellationToken cancellationToken)
+        {
+            var result = await _adminService.UpdateDonorAsync(
+                GetAuthenticatedUserId(),
+                id,
+                request,
+                cancellationToken);
+
+            return Ok(result);
+        }
+
         [HttpPatch("donors/{id:int}/status")]
         [ProducesResponseType(
             typeof(AdminDonorStatusDto),
@@ -114,6 +133,28 @@ namespace BackendService.Controllers
                 cancellationToken);
 
             return Ok(recipient);
+        }
+
+        [HttpPut("recipients/{id:int}")]
+        [ProducesResponseType(
+            typeof(AdminRecipientDto),
+            StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<AdminRecipientDto>> UpdateRecipient(
+            int id,
+            [FromBody] UpdateAdminRecipientDto request,
+            CancellationToken cancellationToken)
+        {
+            var result = await _adminService.UpdateRecipientAsync(
+                GetAuthenticatedUserId(),
+                id,
+                request,
+                cancellationToken);
+
+            return Ok(result);
         }
 
         [HttpPatch("recipients/{id:int}/status")]

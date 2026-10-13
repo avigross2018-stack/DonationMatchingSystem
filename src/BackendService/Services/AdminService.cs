@@ -1,9 +1,10 @@
-
 using System.Data;
 using BackendService.Data;
 using BackendService.DTOs;
 using BackendService.Exceptions;
+using BackendService.Models;
 using BackendService.Repos;
+using Microsoft.EntityFrameworkCore;
 
 namespace BackendService.Services
 {
@@ -14,6 +15,11 @@ namespace BackendService.Services
         private readonly IDonationRepo _donationRepo;
         private readonly IRedemptionRepo _redemptionRepo;
         private readonly IRecipientRepo _recipientRepo;
+        private readonly IUserRepo _userRepo;
+        private readonly IPopulationTypeRepo _populationTypeRepo;
+        private readonly EligibilityService _eligibilityService;
+        private readonly MatchingEventQueue _matchingQueue;
+        private readonly ILogger<AdminService> _logger;
         private readonly IUnitOfWork _unitOfWork;
 
         public AdminService(
@@ -22,6 +28,11 @@ namespace BackendService.Services
             IDonationRepo donationRepo,
             IRedemptionRepo redemptionRepo,
             IRecipientRepo recipientRepo,
+            IUserRepo userRepo,
+            IPopulationTypeRepo populationTypeRepo,
+            EligibilityService eligibilityService,
+            MatchingEventQueue matchingQueue,
+            ILogger<AdminService> logger,
             IUnitOfWork unitOfWork)
         {
             _adminRepo = adminRepo;
@@ -29,6 +40,11 @@ namespace BackendService.Services
             _donationRepo = donationRepo;
             _redemptionRepo = redemptionRepo;
             _recipientRepo = recipientRepo;
+            _userRepo = userRepo;
+            _populationTypeRepo = populationTypeRepo;
+            _eligibilityService = eligibilityService;
+            _matchingQueue = matchingQueue;
+            _logger = logger;
             _unitOfWork = unitOfWork;
         }
 
@@ -134,6 +150,111 @@ namespace BackendService.Services
                         Status = donation.Status
                     })
                     .ToList()
+            };
+        }
+
+        public async Task<AdminDonorDto> UpdateDonorAsync(
+            int adminUserId,
+            int donorId,
+            UpdateDonorDto request,
+            CancellationToken cancellationToken = default)
+        {
+            if (adminUserId <= 0)
+            {
+                throw new ForbiddenException(
+                    "The authenticated user identifier is invalid.");
+            }
+
+            if (donorId <= 0)
+            {
+                throw new BusinessValidationException(
+                    "Donor ID must be positive.");
+            }
+
+            var name = request.Name?.Trim();
+            var phone = request.Phone?.Trim();
+
+            if (string.IsNullOrWhiteSpace(name) ||
+                string.IsNullOrWhiteSpace(phone))
+            {
+                throw new BusinessValidationException(
+                    "Name and phone are required.");
+            }
+
+            // Verify that the caller is an active administrator.
+            var admin = await _adminRepo.GetByUserIdAsync(
+                adminUserId,
+                cancellationToken);
+
+            if (admin?.User is null || !admin.User.IsActive)
+            {
+                throw new ForbiddenException(
+                    "An active admin profile is required.");
+            }
+
+            await using var transaction =
+                await _unitOfWork.BeginTransactionAsync(
+                    IsolationLevel.ReadCommitted,
+                    cancellationToken);
+
+            var donor = await _donorRepo.GetByIdForAdminAsync(
+                donorId,
+                cancellationToken);
+
+            if (donor?.User is null)
+            {
+                throw new ResourceNotFoundException(
+                    $"Donor with ID {donorId} was not found.");
+            }
+
+            // Lock the linked user before changing unique account fields.
+            var user = await _userRepo.GetByIdForUpdateAsync(
+                donor.UserId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                throw new ResourceNotFoundException(
+                    $"User with ID {donor.UserId} was not found.");
+            }
+
+            if (!string.Equals(user.Phone, phone, StringComparison.Ordinal))
+            {
+                var existingUser = await _userRepo.GetByPhoneAsync(phone);
+
+                if (existingUser is not null && existingUser.Id != user.Id)
+                {
+                    throw new ConflictException(
+                        "Phone number is already in use.");
+                }
+            }
+
+            user.Name = name;
+            user.Phone = phone;
+
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex)
+                when (ex.InnerException is MySqlConnector.MySqlException
+                    { Number: 1062 })
+            {
+                // The unique phone constraint also protects concurrent updates.
+                throw new ConflictException(
+                    "Phone number is already in use.");
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return new AdminDonorDto
+            {
+                Id = donor.Id,
+                UserId = user.Id,
+                Name = user.Name,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt
             };
         }
 
@@ -307,6 +428,225 @@ namespace BackendService.Services
                     })
                     .ToList()
             };
+        }
+
+        public async Task<AdminRecipientDto> UpdateRecipientAsync(
+            int adminUserId,
+            int recipientId,
+            UpdateAdminRecipientDto request,
+            CancellationToken cancellationToken = default)
+        {
+            if (adminUserId <= 0)
+            {
+                throw new ForbiddenException(
+                    "The authenticated user identifier is invalid.");
+            }
+
+            if (recipientId <= 0)
+            {
+                throw new BusinessValidationException(
+                    "Recipient ID must be positive.");
+            }
+
+            var name = request.Name?.Trim();
+            var phone = request.Phone?.Trim();
+            var requestReason = request.RequestReason?.Trim();
+
+            if (string.IsNullOrWhiteSpace(name) ||
+                string.IsNullOrWhiteSpace(phone))
+            {
+                throw new BusinessValidationException(
+                    "Name and phone are required.");
+            }
+
+            if (request.IncomeAmount < 0m ||
+                request.IncomeAmount > 99_999_999.99m ||
+                decimal.Round(request.IncomeAmount, 2) != request.IncomeAmount ||
+                request.AmountOfChildren < 0)
+            {
+                throw new BusinessValidationException(
+                    "Invalid income or children count.");
+            }
+
+            if (requestReason?.Length > 250)
+            {
+                throw new BusinessValidationException(
+                    "Request reason cannot exceed 250 characters.");
+            }
+
+            // Verify the caller is an active administrator.
+            var admin = await _adminRepo.GetByUserIdAsync(
+                adminUserId,
+                cancellationToken);
+
+            if (admin?.User is null || !admin.User.IsActive)
+            {
+                throw new ForbiddenException(
+                    "An active admin profile is required.");
+            }
+
+            decimal newRemainingEligibility;
+            decimal newEligibility;
+            bool shouldRematch;
+            BackendService.Models.Recipient recipient;
+            BackendService.Models.User user;
+            string populationTypeName;
+
+            await using (var transaction =
+                await _unitOfWork.BeginTransactionAsync(
+                    IsolationLevel.ReadCommitted,
+                    cancellationToken))
+            {
+                // Lock the recipient before changing its eligibility or account details.
+                var lockedRecipient =
+                    await _recipientRepo.GetByIdForUpdateWithUserAsync(
+                        recipientId,
+                        cancellationToken);
+
+                if (lockedRecipient?.User is null)
+                {
+                    throw new ResourceNotFoundException(
+                        $"Recipient with ID {recipientId} was not found.");
+                }
+
+                recipient = lockedRecipient;
+
+                // Explicitly lock the linked user before changing the unique phone number.
+                var lockedUser = await _userRepo.GetByIdForUpdateAsync(
+                    recipient.UserId,
+                    cancellationToken);
+
+                if (lockedUser is null)
+                {
+                    throw new ResourceNotFoundException(
+                        $"User with ID {recipient.UserId} was not found.");
+                }
+
+                user = lockedUser;
+
+                if (!string.Equals(user.Phone, phone, StringComparison.Ordinal))
+                {
+                    var existingUser = await _userRepo.GetByPhoneAsync(phone);
+
+                    if (existingUser is not null && existingUser.Id != user.Id)
+                    {
+                        throw new ConflictException(
+                            "Phone number is already in use.");
+                    }
+                }
+
+                var populationType = await _populationTypeRepo.GetByIdAsync(
+                    recipient.PopulationTypeId,
+                    cancellationToken);
+
+                if (populationType is null)
+                {
+                    throw new ResourceNotFoundException(
+                        "Recipient population type was not found.");
+                }
+
+                populationTypeName = populationType.Name;
+
+                newEligibility = _eligibilityService.CalculateEligibility(
+                    populationType.BaseEligibilityAmount,
+                    request.IncomeAmount,
+                    request.AmountOfChildren);
+
+                var completedTotal =
+                    await _redemptionRepo.GetTotalCompletedByRecipientAsync(
+                        recipient.Id,
+                        cancellationToken);
+
+                newRemainingEligibility =
+                    Math.Max(0m, newEligibility - completedTotal);
+
+                shouldRematch =
+                    user.IsActive &&
+                    newRemainingEligibility > recipient.RemainingEligibility;
+
+                user.Name = name;
+                user.Phone = phone;
+                recipient.IncomeAmount = request.IncomeAmount;
+                recipient.AmountOfChildren = request.AmountOfChildren;
+                recipient.RequestReason = string.IsNullOrWhiteSpace(requestReason)
+                    ? null
+                    : requestReason;
+                recipient.EligibilityAmount = newEligibility;
+                recipient.RemainingEligibility = newRemainingEligibility;
+
+                try
+                {
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                }
+                catch (DbUpdateException ex)
+                    when (ex.InnerException is MySqlConnector.MySqlException
+                        { Number: 1062 })
+                {
+                    // The unique phone constraint protects concurrent updates too.
+                    throw new ConflictException(
+                        "Phone number is already in use.");
+                }
+
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            if (shouldRematch)
+            {
+                await EnqueueRecipientRematchAsync(
+                    recipientId,
+                    cancellationToken);
+            }
+
+            return new AdminRecipientDto
+            {
+                Id = recipient.Id,
+                UserId = recipient.UserId,
+                Name = user.Name,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                PopulationTypeId = recipient.PopulationTypeId,
+                PopulationTypeName = populationTypeName,
+                IncomeAmount = recipient.IncomeAmount,
+                AmountOfChildren = recipient.AmountOfChildren,
+                EligibilityAmount = newEligibility,
+                RemainingEligibility = newRemainingEligibility
+            };
+        }
+
+        private async Task EnqueueRecipientRematchAsync(
+            int recipientId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _matchingQueue.EnqueueAsync(
+                    new MatchingEvent(
+                        MatchingEventType.RecipientRegistered,
+                        recipientId),
+                    cancellationToken);
+            }
+            catch (OperationCanceledException ex)
+                when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Matching event enqueue timed out for recipient {RecipientId}",
+                    recipientId);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(
+                    "Request was cancelled after saving recipient {RecipientId}",
+                    recipientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to enqueue matching event for recipient {RecipientId}",
+                    recipientId);
+            }
         }
 
         public async Task<AdminRecipientStatusDto>
