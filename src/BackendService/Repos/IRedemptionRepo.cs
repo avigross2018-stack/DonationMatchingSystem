@@ -23,5 +23,13 @@ namespace BackendService.Repos
             CancellationToken cancellationToken = default);
             
         Task<List<Redemption>> GetPendingByDonationIdAsync(int donationId);
+
+        Task<decimal> GetTotalCompletedByRecipientAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default);
+
+        Task<List<Redemption>> GetByRecipientIdAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default);
     }
 }

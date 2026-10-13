@@ -62,5 +62,30 @@ namespace BackendService.Repos
                     r.Status == "PENDING")
                 .ToListAsync();
         }
+
+        public async Task<decimal> GetTotalCompletedByRecipientAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Redemptions
+                .Where(r =>
+                    r.RecipientId == recipientId &&
+                    r.Status == "COMPLETED")
+                .SumAsync(
+                    r => (decimal?)r.Amount,
+                    cancellationToken) ?? 0m;
+        }
+
+        public async Task<List<Redemption>> GetByRecipientIdAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Redemptions
+                .AsNoTracking()
+                .Include(r => r.Donation)
+                .Where(r => r.RecipientId == recipientId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
     }
 }
