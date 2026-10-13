@@ -56,6 +56,7 @@ namespace BackendService.Services
                             break;
 
                         case MatchingEventType.DonationCreated:
+                        case MatchingEventType.DonationUpdated:
                             if (matchingEvent.EntityId is int donationId)
                             {
                                 var count = await matchingService.MatchDonationAsync(

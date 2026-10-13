@@ -32,5 +32,23 @@ namespace BackendService.Repos
             return await _appDb.Users
                 .FirstOrDefaultAsync(u => u.Phone == phone);
         }
+
+        public async Task<User?> GetByIdForUpdateAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _appDb.Users
+                .FromSqlInterpolated(
+                    $"SELECT * FROM `Users` WHERE `Id` = {userId} FOR UPDATE")
+                .AsAsyncEnumerable();
+
+            await foreach (var user in
+                query.WithCancellation(cancellationToken))
+            {
+                return user;
+            }
+
+            return null;
+        }
     }
 }

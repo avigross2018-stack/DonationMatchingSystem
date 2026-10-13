@@ -93,9 +93,12 @@ namespace BackendService.Services
 
             // Validate donation
             if (donation.Status != "ACTIVE" ||
-                donation.ExpirationDate <= utcNow ||
+                (donation.ExpirationDate.HasValue &&
+                donation.ExpirationDate.Value <= utcNow) ||
                 donation.RemainingAmount <= 0)
+            {
                 return false;
+            }
 
             // Validate recipient
             if (recipient.RemainingEligibility <= 0)

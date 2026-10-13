@@ -19,6 +19,7 @@ namespace BackendService.Services
         private readonly IPopulationTypeRepo _populationTypeRepo;
         private readonly EligibilityService _eligibilityService;
         private readonly MatchingEventQueue _matchingQueue;
+        private readonly ILogger<AuthService> _logger;
         public AuthService(
             IUserRepo userRepo,
             IDonorRepo donorRepo,
@@ -29,7 +30,8 @@ namespace BackendService.Services
             IRecipientRepo recipientRepo,
             IPopulationTypeRepo populationTypeRepo,
             EligibilityService eligibilityService,
-            MatchingEventQueue matchingQueue
+            MatchingEventQueue matchingQueue,
+            ILogger<AuthService> logger
         )
         {
             _userRepo = userRepo;
@@ -42,6 +44,7 @@ namespace BackendService.Services
             _populationTypeRepo = populationTypeRepo;
             _eligibilityService = eligibilityService;
             _matchingQueue = matchingQueue;
+            _logger = logger;
         }
 
         public async Task<int> RegisterDonorAsync(RegisterDonorDto dto)
@@ -224,12 +227,60 @@ namespace BackendService.Services
             await _unitOfWork.SaveChangesAsync();
 
             // Send matching event after successful save
-            await _matchingQueue.EnqueueAsync(
-                new MatchingEvent(
-                    MatchingEventType.RecipientRegistered,
-                    recipient.Id));
+            try
+            {
+                await _matchingQueue.EnqueueAsync(
+                    new MatchingEvent(
+                        MatchingEventType.RecipientRegistered,
+                        recipient.Id));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to enqueue matching event for recipient {RecipientId}",
+                    recipient.Id);
+            }
 
             return user.Id;
+
+        }
+
+        public async Task ChangePasswordAsync(
+            int userId,
+            ChangePasswordDto dto)
+        {
+            var user = await _userRepo.GetByIdAsync(userId);
+
+            if (user == null || !user.IsActive)
+            {
+                throw new ForbiddenException(
+                    "User account is inactive or unavailable.");
+            }
+
+            var verificationResult =
+                _passwordHasher.VerifyHashedPassword(
+                    user,
+                    user.PasswordHash,
+                    dto.CurrentPassword);
+
+            if (verificationResult == PasswordVerificationResult.Failed)
+            {
+                throw new BusinessValidationException(
+                    "Current password is incorrect.");
+            }
+
+            if (dto.CurrentPassword == dto.NewPassword)
+            {
+                throw new BusinessValidationException(
+                    "New password must be different from current password.");
+            }
+
+            user.PasswordHash = _passwordHasher.HashPassword(
+                user,
+                dto.NewPassword);
+
+            await _unitOfWork.SaveChangesAsync();
         }
 
     }

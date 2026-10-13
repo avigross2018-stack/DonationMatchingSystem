@@ -27,7 +27,8 @@ namespace BackendService.Repos
                 .AsNoTracking()
                 .Where(d =>
                     d.Status == "ACTIVE" &&
-                    d.ExpirationDate > utcNow &&
+                    (d.ExpirationDate == null ||
+                    d.ExpirationDate > utcNow) &&
                     d.RemainingAmount > 0 &&
                     d.Donor.User.IsActive)
                 .ToListAsync(cancellationToken);
@@ -75,6 +76,7 @@ namespace BackendService.Repos
             return await _appDb.Donations
                 .Where(d =>
                     d.Status == "ACTIVE" &&
+                    d.ExpirationDate != null &&
                     d.ExpirationDate <= utcNow)
                 .ToListAsync(cancellationToken);
         }
@@ -174,6 +176,18 @@ namespace BackendService.Repos
                 .Include(d => d.Donor)
                     .ThenInclude(donor => donor.User)
                 .Include(d => d.PopulationType);
+        public async Task<List<int>> GetActiveDonationIdsByDonorIdAsync(
+            int donorId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Donations
+                .AsNoTracking()
+                .Where(d =>
+                    d.DonorId == donorId &&
+                    d.Status == "ACTIVE")
+                .OrderBy(d => d.Id)
+                .Select(d => d.Id)
+                .ToListAsync(cancellationToken);
         }
     }
 }

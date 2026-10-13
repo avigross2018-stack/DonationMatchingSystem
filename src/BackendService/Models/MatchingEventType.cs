@@ -4,6 +4,7 @@ namespace BackendService.Models
     {
         RecipientRegistered,
         DonationCreated,
+        DonationUpdated,
         FullScan
     }
     public record MatchingEvent(

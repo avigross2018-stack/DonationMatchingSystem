@@ -36,6 +36,8 @@ namespace BackendService.Repos
 
         Task<Recipient?> GetByIdForAdminAsync(
             int recipientId,
+        Task<Recipient?> GetByUserIdForUpdateAsync(
+            int userId,
             CancellationToken cancellationToken = default);
     }
 }
