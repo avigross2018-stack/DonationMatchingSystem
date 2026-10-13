@@ -17,7 +17,7 @@ namespace BackendService.Repos
         Task AddAsync(
             Redemption redemption,
             CancellationToken cancellationToken = default);
-            
+
         Task<List<Redemption>> GetPendingByDonationIdAsync(int donationId);
 
         Task<decimal> GetTotalCompletedByRecipientAsync(
@@ -25,10 +25,6 @@ namespace BackendService.Repos
             CancellationToken cancellationToken = default);
 
         Task<List<Redemption>> GetByRecipientIdAsync(
-            int recipientId,
-            CancellationToken cancellationToken = default);
-
-        Task<List<Redemption>> GetPendingByRecipientIdAsync(
             int recipientId,
             CancellationToken cancellationToken = default);
 
@@ -60,7 +56,7 @@ namespace BackendService.Repos
         Task<Redemption?> GetByIdForUpdateAsync(
             int redemptionId,
             CancellationToken cancellationToken = default);
-        
+
         Task<decimal> GetCompletedTotalByDonationIdAsync(
             int donationId,
             CancellationToken cancellationToken = default);

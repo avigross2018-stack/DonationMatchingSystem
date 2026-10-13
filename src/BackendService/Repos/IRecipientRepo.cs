@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using BackendService.Models;
 
 namespace BackendService.Repos
@@ -36,6 +39,8 @@ namespace BackendService.Repos
 
         Task<Recipient?> GetByIdForAdminAsync(
             int recipientId,
+            CancellationToken cancellationToken = default);
+
         Task<Recipient?> GetByUserIdForUpdateAsync(
             int userId,
             CancellationToken cancellationToken = default);
