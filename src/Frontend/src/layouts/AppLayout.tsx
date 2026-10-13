@@ -7,6 +7,9 @@ import LockRounded from '@mui/icons-material/LockRounded';
 import LogoutRounded from '@mui/icons-material/LogoutRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
 import RedeemRounded from '@mui/icons-material/RedeemRounded';
+import GroupsRounded from '@mui/icons-material/GroupsRounded';
+import CategoryRounded from '@mui/icons-material/CategoryRounded';
+import FavoriteRounded from '@mui/icons-material/FavoriteRounded';
 import KeyboardArrowLeftRounded from '@mui/icons-material/KeyboardArrowLeftRounded';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -17,7 +20,7 @@ const roleCopy = { DONOR: { label: 'אזור תורם', short: 'תורם', avata
 const navByRole = {
   DONOR: [{ to: '/donor', label: 'תמונת מצב', icon: <DashboardRounded /> }, { to: '/donor/donations', label: 'התרומות שלי', icon: <VolunteerActivismRounded /> }, { to: '/donor/profile', label: 'פרופיל אישי', icon: <PersonRounded /> }, { to: '/donor/security', label: 'אבטחה וסיסמה', icon: <LockRounded /> }],
   RECIPIENT: [{ to: '/recipient', label: 'תמונת מצב', icon: <DashboardRounded /> }, { to: '/recipient/redemptions', label: 'המימושים שלי', icon: <RedeemRounded /> }, { to: '/recipient/profile', label: 'פרופיל וזכאות', icon: <PersonRounded /> }, { to: '/recipient/security', label: 'אבטחה וסיסמה', icon: <LockRounded /> }],
-  ADMIN: [{ to: '/admin', label: 'מרכז בקרה', icon: <DashboardRounded /> }, { to: '/admin/redemptions/pending', label: 'ממתינים לאישור', icon: <RedeemRounded /> }, { to: '/admin/redemptions', label: 'כל המימושים', icon: <VolunteerActivismRounded /> }, { to: '/admin/profile', label: 'פרופיל מנהל', icon: <PersonRounded /> }, { to: '/admin/security', label: 'אבטחה וסיסמה', icon: <LockRounded /> }],
+  ADMIN: [{ to: '/admin', label: 'מרכז בקרה', icon: <DashboardRounded /> }, { to: '/admin/donors', label: 'תורמים', icon: <VolunteerActivismRounded /> }, { to: '/admin/recipients', label: 'נתרמים', icon: <GroupsRounded /> }, { to: '/admin/donations', label: 'תרומות', icon: <FavoriteRounded /> }, { to: '/admin/population-types', label: 'סוגי אוכלוסייה', icon: <CategoryRounded /> }, { to: '/admin/redemptions/pending', label: 'ממתינים לאישור', icon: <RedeemRounded /> }, { to: '/admin/redemptions', label: 'כל המימושים', icon: <VolunteerActivismRounded /> }, { to: '/admin/profile', label: 'פרופיל מנהל', icon: <PersonRounded /> }, { to: '/admin/security', label: 'אבטחה וסיסמה', icon: <LockRounded /> }],
 };
 
 export function AppLayout() {
