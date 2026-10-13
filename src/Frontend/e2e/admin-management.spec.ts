@@ -13,6 +13,10 @@ test('admin dashboard uses server statistics', async ({ page }) => {
   await page.goto('/admin');
   await expect(page.getByText('משתמשים פעילים')).toBeVisible();
   await expect(page.getByText(/10,000/)).toBeVisible();
+  const drawer = page.locator('.MuiDrawer-paper');
+  const drawerBox = await drawer.boundingBox();
+  expect(drawerBox).not.toBeNull();
+  expect(drawerBox!.x).toBeGreaterThan(500);
 });
 
 test('admin can create a population type without hard-coded ids', async ({ page }) => {
