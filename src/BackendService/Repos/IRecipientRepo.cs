@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using BackendService.Models;
 
 namespace BackendService.Repos
@@ -12,9 +8,11 @@ namespace BackendService.Repos
 
         Task<Recipient?> GetByUserIdAsync(int userId);
 
-        Task<Recipient?> GetByIdAsync(int id);  
+        Task<Recipient?> GetByIdAsync(int id);
+
         Task<List<Recipient>> GetEligibleRecipientsAsync(
             CancellationToken cancellationToken = default);
+
         Task ReloadAsync(
             Recipient recipient,
             CancellationToken cancellationToken = default);
@@ -23,10 +21,21 @@ namespace BackendService.Repos
             int recipientId,
             CancellationToken cancellationToken = default);
 
+        Task<Recipient?> GetByIdForUpdateWithUserAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default);
+
         Task<Recipient?> GetByIdNoTrackingAsync(
             int recipientId,
             CancellationToken cancellationToken = default);
 
         Task<bool> IsRecipientActiveAsync(int recipientId);
+
+        Task<List<Recipient>> GetAllForAdminAsync(
+            CancellationToken cancellationToken = default);
+
+        Task<Recipient?> GetByIdForAdminAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default);
     }
 }

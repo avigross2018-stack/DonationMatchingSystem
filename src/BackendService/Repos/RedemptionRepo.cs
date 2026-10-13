@@ -1,4 +1,3 @@
-
 using BackendService.Data;
 using BackendService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +62,57 @@ namespace BackendService.Repos
                 .ToListAsync();
         }
 
+        public async Task<List<int>> GetPendingDonationIdsByRecipientIdAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            // Return donation IDs in a consistent lock order.
+            return await _appDb.Redemptions
+                .AsNoTracking()
+                .Where(r =>
+                    r.RecipientId == recipientId &&
+                    r.Status == "PENDING")
+                .Select(r => r.DonationId)
+                .Distinct()
+                .OrderBy(donationId => donationId)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<Redemption>> GetPendingByRecipientIdAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Redemptions
+                .Where(r =>
+                    r.RecipientId == recipientId &&
+                    r.Status == "PENDING")
+                .OrderBy(r => r.DonationId)
+                .ThenBy(r => r.Id)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<Redemption>>
+            GetPendingByRecipientIdForUpdateAsync(
+                int recipientId,
+                CancellationToken cancellationToken = default)
+        {
+            // Lock pending redemptions after locking donations and recipient.
+            var query = _appDb.Redemptions
+                .FromSqlInterpolated(
+                    $"SELECT * FROM `Redemptions` WHERE `RecipientId` = {recipientId} AND `Status` = 'PENDING' ORDER BY `DonationId`, `Id` FOR UPDATE")
+                .AsAsyncEnumerable();
+
+            var redemptions = new List<Redemption>();
+
+            await foreach (var redemption in query
+                .WithCancellation(cancellationToken))
+            {
+                redemptions.Add(redemption);
+            }
+
+            return redemptions;
+        }
+
         public async Task<(List<Redemption> Items, int TotalCount)>
             GetForAdminAsync(
                 int? populationTypeId,
@@ -78,8 +128,7 @@ namespace BackendService.Repos
             if (populationTypeId.HasValue)
             {
                 query = query.Where(r =>
-                    r.Donation.PopulationTypeId ==
-                    populationTypeId.Value);
+                    r.Donation.PopulationTypeId == populationTypeId.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(status))
@@ -91,20 +140,17 @@ namespace BackendService.Repos
             {
                 var startDate = fromDate.Value.Date;
 
-                query = query.Where(
-                    r => r.CreatedAt >= startDate);
+                query = query.Where(r => r.CreatedAt >= startDate);
             }
 
             if (toDate.HasValue)
             {
                 var endDateExclusive = toDate.Value.Date.AddDays(1);
 
-                query = query.Where(
-                    r => r.CreatedAt < endDateExclusive);
+                query = query.Where(r => r.CreatedAt < endDateExclusive);
             }
 
-            var totalCount = await query.CountAsync(
-                cancellationToken);
+            var totalCount = await query.CountAsync(cancellationToken);
 
             var items = await query
                 .OrderByDescending(r => r.CreatedAt)
@@ -135,8 +181,8 @@ namespace BackendService.Repos
                     $"SELECT * FROM `Redemptions` WHERE `Id` = {redemptionId} FOR UPDATE")
                 .AsAsyncEnumerable();
 
-            await foreach (var redemption in
-                query.WithCancellation(cancellationToken))
+            await foreach (var redemption in query
+                .WithCancellation(cancellationToken))
             {
                 return redemption;
             }
@@ -157,6 +203,20 @@ namespace BackendService.Repos
                         .ThenInclude(donor => donor.User)
                 .Include(r => r.Donation)
                     .ThenInclude(donation => donation.PopulationType);
+        }
+        
+        public async Task<decimal> GetCompletedTotalByDonationIdAsync(
+            int donationId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Redemptions
+                       .Where(r =>
+                           r.DonationId == donationId &&
+                           r.Status == "COMPLETED")
+                       .SumAsync(
+                           r => (decimal?)r.Amount,
+                           cancellationToken)
+                   ?? 0m;
         }
     }
 }

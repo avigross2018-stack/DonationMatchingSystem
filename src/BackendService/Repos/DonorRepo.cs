@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 using BackendService.Data;
 using BackendService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +8,7 @@ namespace BackendService.Repos
     public class DonorRepo : IDonorRepo
     {
         private readonly AppDbContext _appDb;
+
         public DonorRepo(AppDbContext appDb)
         {
             _appDb = appDb;
@@ -35,5 +33,44 @@ namespace BackendService.Repos
                     d.Id == donorId &&
                     d.User.IsActive);
         }
+
+        public async Task<List<Donor>> GetAllForAdminAsync(
+            CancellationToken cancellationToken = default)
+        {
+            // Load donor accounts without tracking changes.
+            return await _appDb.Donors
+                .AsNoTracking()
+                .Include(d => d.User)
+                .OrderBy(d => d.Id)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<Donor?> GetByIdForAdminAsync(
+            int donorId,
+            CancellationToken cancellationToken = default)
+        {
+            // Load donor details and donation history.
+            return await _appDb.Donors
+                .AsNoTracking()
+                .Include(d => d.User)
+                .Include(d => d.Donations)
+                    .ThenInclude(donation => donation.PopulationType)
+                .FirstOrDefaultAsync(
+                    d => d.Id == donorId,
+                    cancellationToken);
+        }
+
+        public async Task<Donor?> GetTrackedByIdForAdminAsync(
+            int donorId,
+            CancellationToken cancellationToken = default)
+        {
+            // Keep the donor and user tracked for status updates.
+            return await _appDb.Donors
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(
+                    d => d.Id == donorId,
+                    cancellationToken);
+        }
     }
 }
+    
