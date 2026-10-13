@@ -64,7 +64,50 @@ export interface AdminApproval {
   redeemedAt: string; donationRemainingAmount: number; recipientRemainingEligibility: number;
 }
 export interface AdminRejection { redemptionId: number; status: string; handledByAdminId: number }
-export interface PopulationType { id: number; name: string }
+export interface PopulationType { id: number; name: string; description?: string | null }
+
+export interface AdminDashboardStatistics {
+  generatedAtUtc: string;
+  users: { donorsCount: number; recipientsCount: number; activeUsersCount: number; inactiveUsersCount: number };
+  donations: { totalCount: number; totalDonationAmount: number; availableDonationCount: number; availableDonationBalance: number; activeCount: number; completedCount: number; cancelledCount: number; expiredCount: number };
+  redemptions: { totalCount: number; pendingCount: number; completedCount: number; rejectedCount: number; cancelledCount: number; completedRedemptionAmount: number };
+  populationTypes: AdminDashboardPopulationStatistics[];
+}
+export interface AdminDashboardPopulationStatistics {
+  populationTypeId: number; populationTypeName: string; isActive: boolean;
+  recipientsCount: number; donationsCount: number; totalDonationAmount: number;
+  availableDonationBalance: number; pendingRedemptionsCount: number;
+  completedRedemptionsCount: number; rejectedRedemptionsCount: number;
+  cancelledRedemptionsCount: number; completedRedemptionAmount: number;
+}
+
+export interface AdminDonor {
+  id: number; userId: number; name: string; phone: string; isActive: boolean; createdAt: string;
+}
+export interface AdminDonorDonation extends Donation { populationTypeName: string }
+export interface AdminDonorDetails extends AdminDonor { donations: AdminDonorDonation[] }
+export interface AdminDonorStatus { donorId: number; userId: number; isActive: boolean; cancelledDonationsCount: number; cancelledRedemptionsCount: number }
+
+export interface AdminRecipient {
+  id: number; userId: number; name: string; phone: string; isActive: boolean;
+  populationTypeId: number; populationTypeName: string; incomeAmount: number;
+  amountOfChildren: number; eligibilityAmount: number; remainingEligibility: number;
+}
+export interface AdminRecipientRedemption extends Redemption {
+  donorName: string; donationTotalAmount: number; donationStatus: DonationStatus;
+}
+export interface AdminRecipientDetails extends AdminRecipient { requestReason?: string | null; redemptions: AdminRecipientRedemption[] }
+export interface UpdateAdminRecipientRequest { name: string; phone: string; incomeAmount: number; amountOfChildren: number; requestReason?: string | null }
+export interface AdminRecipientStatus { recipientId: number; userId: number; isActive: boolean; cancelledRedemptionsCount: number }
+
+export interface AdminDonation extends Donation { donorId: number; donorName: string; donorPhone: string; populationTypeName: string }
+export interface AdminDonationRedemption { id: number; recipientId: number; recipientName: string; status: RedemptionStatus; amount: number; createdAt: string; redeemedAt?: string | null; handledByAdminId?: number | null }
+export interface AdminDonationDetails extends AdminDonation { redemptions: AdminDonationRedemption[] }
+export interface AdminDonationFilters { donorId?: number; populationTypeId?: number; status?: string; fromDate?: string; toDate?: string; page: number; pageSize: number }
+export type UpdateAdminDonationRequest = UpdateDonationRequest;
+
+export interface AdminPopulationType extends PopulationType { baseEligibilityAmount: number; isActive: boolean }
+export interface SavePopulationTypeRequest { name: string; description?: string | null; baseEligibilityAmount: number }
 
 export interface AppError {
   status?: number;

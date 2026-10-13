@@ -12,13 +12,14 @@ import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import VolunteerActivismRounded from '@mui/icons-material/VolunteerActivismRounded';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { normalizeError } from '../../api/client';
+import { applyServerFieldErrors } from '../../api/formErrors';
 import { authApi } from '../../api/services';
 import { roleHome, useAuth } from '../../auth/AuthContext';
-import { featureFlags } from '../../lib/config';
-import { donorRegistrationSchema, loginSchema, type DonorRegistrationForm, type LoginForm } from './schemas';
+import { PopulationTypeSelect, useActivePopulationTypes } from '../../components/PopulationTypeSelect';
+import { donorRegistrationSchema, loginSchema, recipientRegistrationSchema, type DonorRegistrationForm, type LoginForm, type RecipientRegistrationForm } from './schemas';
 
 const steps = [
   { icon: <LockRounded />, n: '01', title: 'נרשמים בבטחה', text: 'כל משתמש מקבל אזור אישי המותאם לתפקיד ולהרשאות שלו.' },
@@ -68,7 +69,35 @@ export function DonorRegisterPage() {
   return <AuthCard title="רישום תורם" subtitle="כמה פרטים קצרים ומתחילים"><Stack component="form" spacing={2.2} onSubmit={handleSubmit((data) => mutation.mutate({ name: data.name, phone: data.phone, password: data.password }))}>{error && <Alert severity="error">{error}</Alert>}<TextField label="שם מלא" autoComplete="name" error={Boolean(errors.name)} helperText={errors.name?.message} {...register('name')} /><TextField label="מספר טלפון" autoComplete="tel" error={Boolean(errors.phone)} helperText={errors.phone?.message} {...register('phone')} /><TextField label="סיסמה" type="password" autoComplete="new-password" error={Boolean(errors.password)} helperText={errors.password?.message} {...register('password')} /><TextField label="אימות סיסמה" type="password" autoComplete="new-password" error={Boolean(errors.confirmPassword)} helperText={errors.confirmPassword?.message} {...register('confirmPassword')} /><Alert severity="info" icon={<ShieldRounded />}>הסיסמה נשארת חסויה ואינה מוצגת במערכת.</Alert><Button type="submit" variant="contained" size="large" disabled={mutation.isPending}>{mutation.isPending ? 'נרשמים…' : 'יצירת חשבון'}</Button></Stack></AuthCard>;
 }
 
-export function RecipientRegisterPage() { return <AuthCard title="רישום נתרם" subtitle="הפרטים משמשים את השרת לחישוב הזכאות"><Alert severity={featureFlags.populationTypes ? 'info' : 'warning'}>{featureFlags.populationTypes ? 'מקור סוגי האוכלוסייה עדיין אינו מחובר בסביבה זו.' : 'הרישום אינו זמין זמנית: השרת עדיין אינו מספק רשימת סוגי אוכלוסייה מאושרת. לא נבקש מכם לבחור ערך לא אמין.'}</Alert><Stack direction="row" spacing={1} sx={{ mt: 3 }}><Button component={Link} to="/register" variant="outlined">חזרה</Button><Button component={Link} to="/login" variant="contained">לכניסה</Button></Stack></AuthCard>; }
+export function RecipientRegisterPage() {
+  const navigate = useNavigate();
+  const populationTypes = useActivePopulationTypes();
+  const [serverError, setServerError] = useState('');
+  const { register, control, handleSubmit, setError, formState: { errors } } = useForm<RecipientRegistrationForm>({
+    resolver: zodResolver(recipientRegistrationSchema),
+    defaultValues: { name: '', phone: '', password: '', confirmPassword: '', populationTypeId: 0, incomeAmount: 0, amountOfChildren: 0, requestReason: '' },
+  });
+  const mutation = useMutation({
+    mutationFn: authApi.registerRecipient,
+    onSuccess: () => navigate('/login', { state: { registered: true } }),
+    onError: (error) => { const normalized = normalizeError(error); applyServerFieldErrors(normalized, setError); setServerError(normalized.message); },
+  });
+  const available = Boolean(populationTypes.data?.length);
+  return <AuthCard title="רישום נתרם" subtitle="הפרטים משמשים את השרת לחישוב הזכאות">
+    <Stack component="form" spacing={2.2} onSubmit={handleSubmit((data) => { setServerError(''); mutation.mutate({ name: data.name, phone: data.phone, password: data.password, populationTypeId: data.populationTypeId, incomeAmount: data.incomeAmount, amountOfChildren: data.amountOfChildren, requestReason: data.requestReason || null }); })}>
+      {serverError && <Alert severity="error">{serverError}</Alert>}
+      <TextField label="שם מלא" autoComplete="name" error={Boolean(errors.name)} helperText={errors.name?.message} {...register('name')} />
+      <TextField label="מספר טלפון" autoComplete="tel" error={Boolean(errors.phone)} helperText={errors.phone?.message} {...register('phone')} />
+      <Controller name="populationTypeId" control={control} render={({ field }) => <PopulationTypeSelect value={field.value || ''} onChange={field.onChange} error={Boolean(errors.populationTypeId)} helperText={errors.populationTypeId?.message} />} />
+      <Grid container spacing={2}><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="הכנסה חודשית" type="number" error={Boolean(errors.incomeAmount)} helperText={errors.incomeAmount?.message} {...register('incomeAmount', { valueAsNumber: true })} /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="מספר ילדים" type="number" error={Boolean(errors.amountOfChildren)} helperText={errors.amountOfChildren?.message} {...register('amountOfChildren', { valueAsNumber: true })} /></Grid></Grid>
+      <TextField label="סיבת הבקשה" multiline minRows={3} error={Boolean(errors.requestReason)} helperText={errors.requestReason?.message || 'עד 250 תווים'} {...register('requestReason')} />
+      <TextField label="סיסמה" type="password" autoComplete="new-password" error={Boolean(errors.password)} helperText={errors.password?.message} {...register('password')} />
+      <TextField label="אימות סיסמה" type="password" autoComplete="new-password" error={Boolean(errors.confirmPassword)} helperText={errors.confirmPassword?.message} {...register('confirmPassword')} />
+      <Button type="submit" variant="contained" size="large" disabled={mutation.isPending || populationTypes.isLoading || !available}>{mutation.isPending ? 'נרשמים…' : 'יצירת חשבון נתרם'}</Button>
+      <Button component={Link} to="/register">חזרה לבחירת חשבון</Button>
+    </Stack>
+  </AuthCard>;
+}
 
 function SystemPage({ code, title, message, icon }: { code: string; title: string; message: string; icon?: React.ReactNode }) { return <Container maxWidth="sm" sx={{ py: 12, textAlign: 'center' }}><Box sx={{ display: 'grid', placeItems: 'center', width: 76, height: 76, borderRadius: '22px', bgcolor: 'primary.light', color: 'primary.main', mx: 'auto' }}>{icon || <Typography fontSize="1.4rem" fontWeight={800}>{code}</Typography>}</Box><Typography variant="h2" sx={{ mt: 3 }}>{title}</Typography><Typography color="text.secondary" sx={{ my: 2 }}>{message}</Typography><Button component={Link} to="/" variant="contained">חזרה לדף הבית</Button></Container>; }
 export function ForbiddenPage() { return <SystemPage code="403" title="אין הרשאה לעמוד הזה" message="העמוד שייך לסוג חשבון אחר." icon={<ShieldRounded sx={{ fontSize: 38 }} />} />; }

@@ -1,9 +1,18 @@
 export const queryKeys = {
+  activePopulationTypes: ['population-types', 'active'] as const,
   donorProfile: ['donor', 'profile'] as const,
   donations: ['donor', 'donations'] as const,
   recipientProfile: ['recipient', 'profile'] as const,
   recipientRedemptions: ['recipient', 'redemptions'] as const,
   adminProfile: ['admin', 'profile'] as const,
+  adminStatistics: ['admin', 'statistics'] as const,
+  adminDonors: ['admin', 'donors'] as const,
+  adminDonor: (id: number) => ['admin', 'donor', id] as const,
+  adminRecipients: ['admin', 'recipients'] as const,
+  adminRecipient: (id: number) => ['admin', 'recipient', id] as const,
+  adminDonations: ['admin', 'donations'] as const,
+  adminDonation: (id: number) => ['admin', 'donation', id] as const,
+  adminPopulationTypes: ['admin', 'population-types'] as const,
   adminRedemptions: ['admin', 'redemptions'] as const,
   adminRedemption: (id: number) => ['admin', 'redemption', id] as const,
 };

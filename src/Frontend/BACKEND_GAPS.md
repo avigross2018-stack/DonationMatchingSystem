@@ -1,13 +1,9 @@
 # Backend gaps affecting the frontend
 
-## Active population types — critical
+## Resolved capabilities
 
-- Capability: list active population types.
-- Impact: blocks real recipient registration, donation creation and reliable admin population filtering.
-- Proposed endpoint: `GET /api/population-types/active`.
-- Proposed response: `[{ "id": 1, "name": "Example" }]`.
-- Authorization: public, because registration requires it.
-- Frontend fallback: disable affected production submissions with a transparent message; never hard-code IDs.
+- Active population types are available through `GET /api/population-types` and are wired to recipient registration and donation creation.
+- Administration APIs for users, donations, population types and dashboard statistics are available and wired to the admin UI.
 
 ## Deployment CORS — high
 
@@ -15,12 +11,6 @@
 - Impact: separate-origin production deployment cannot call the API.
 - Proposed change: allow only explicitly configured frontend origins, or deploy behind a same-origin reverse proxy.
 - Frontend fallback: Vite proxy is used for local development.
-
-## Administration APIs — medium
-
-- Missing: user management, donation management, population-type management and system statistics.
-- Impact: these navigation items are not shown as active features.
-- Frontend fallback: dashboard uses only the existing redemptions and admin profile endpoints.
 
 ## Donation detail and pagination — medium
 
