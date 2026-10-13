@@ -77,6 +77,8 @@ builder.Services.AddScoped<EligibilityService>();
 builder.Services.AddScoped<RecipientService>();
 builder.Services.AddScoped<DonorService>();
 builder.Services.AddScoped<PopulationTypeService>();
+builder.Services.AddScoped<AdminStatisticsService>();
+
 
 var jwtKey = builder.Configuration["JWT:KEY"]
     ?? throw new InvalidOperationException("JWT key is missing");
