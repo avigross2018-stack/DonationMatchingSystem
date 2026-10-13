@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 using BackendService.Data;
 using BackendService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +8,7 @@ namespace BackendService.Repos
     public class RedemptionRepo : IRedemptionRepo
     {
         private readonly AppDbContext _appDb;
+
         public RedemptionRepo(AppDbContext appDb)
         {
             _appDb = appDb;
@@ -26,7 +24,7 @@ namespace BackendService.Repos
                     r.DonationId == donationId &&
                     r.RecipientId == recipientId &&
                     (r.Status == "PENDING" ||
-                    r.Status == "REJECTED"),
+                     r.Status == "REJECTED"),
                     cancellationToken);
         }
 
@@ -40,7 +38,9 @@ namespace BackendService.Repos
                     r.DonationId == donationId &&
                     r.RecipientId == recipientId &&
                     r.Status == "COMPLETED")
-                .SumAsync(r => (decimal?)r.Amount, cancellationToken)
+                .SumAsync(
+                    r => (decimal?)r.Amount,
+                    cancellationToken)
                 ?? 0m;
         }
 
@@ -99,5 +99,100 @@ namespace BackendService.Repos
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<(List<Redemption> Items, int TotalCount)>
+            GetForAdminAsync(
+                int? populationTypeId,
+                string? status,
+                DateTime? fromDate,
+                DateTime? toDate,
+                int page,
+                int pageSize,
+                CancellationToken cancellationToken = default)
+        {
+            var query = BuildAdminQuery();
+
+            if (populationTypeId.HasValue)
+            {
+                query = query.Where(r =>
+                    r.Donation.PopulationTypeId ==
+                    populationTypeId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(r => r.Status == status);
+            }
+
+            if (fromDate.HasValue)
+            {
+                var startDate = fromDate.Value.Date;
+
+                query = query.Where(
+                    r => r.CreatedAt >= startDate);
+            }
+
+            if (toDate.HasValue)
+            {
+                var endDateExclusive = toDate.Value.Date.AddDays(1);
+
+                query = query.Where(
+                    r => r.CreatedAt < endDateExclusive);
+            }
+
+            var totalCount = await query.CountAsync(
+                cancellationToken);
+
+            var items = await query
+                .OrderByDescending(r => r.CreatedAt)
+                .ThenByDescending(r => r.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            return (items, totalCount);
+        }
+
+        public async Task<Redemption?> GetByIdForAdminAsync(
+            int id,
+            CancellationToken cancellationToken = default)
+        {
+            return await BuildAdminQuery()
+                .FirstOrDefaultAsync(
+                    r => r.Id == id,
+                    cancellationToken);
+        }
+
+        public async Task<Redemption?> GetByIdForUpdateAsync(
+            int redemptionId,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _appDb.Redemptions
+                .FromSqlInterpolated(
+                    $"SELECT * FROM `Redemptions` WHERE `Id` = {redemptionId} FOR UPDATE")
+                .AsAsyncEnumerable();
+
+            await foreach (var redemption in
+                query.WithCancellation(cancellationToken))
+            {
+                return redemption;
+            }
+
+            return null;
+        }
+
+        private IQueryable<Redemption> BuildAdminQuery()
+        {
+            return _appDb.Redemptions
+                .AsNoTracking()
+                .Include(r => r.Recipient)
+                    .ThenInclude(recipient => recipient.User)
+                .Include(r => r.Recipient)
+                    .ThenInclude(recipient => recipient.PopulationType)
+                .Include(r => r.Donation)
+                    .ThenInclude(donation => donation.Donor)
+                        .ThenInclude(donor => donor.User)
+                .Include(r => r.Donation)
+                    .ThenInclude(donation => donation.PopulationType);
+        }
     }
 }
