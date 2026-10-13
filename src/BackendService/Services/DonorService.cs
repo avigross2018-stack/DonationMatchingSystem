@@ -117,6 +117,16 @@ namespace BackendService.Services
                     IsolationLevel.ReadCommitted,
                     cancellationToken);
 
+            var user = await _userRepo.GetByIdForUpdateAsync(
+                userId,
+                cancellationToken);
+
+            if (user == null || !user.IsActive)
+            {
+                throw new ForbiddenException(
+                    "Donor account is already inactive.");
+            }
+
             var donationIds = await _donationRepo
                 .GetActiveDonationIdsByDonorIdAsync(
                     donor.Id,
@@ -144,15 +154,6 @@ namespace BackendService.Services
                 }
 
                 donation.Status = "CANCELLED";
-            }
-
-            // Recheck the user after locking the donations.
-            var user = await _userRepo.GetByIdAsync(userId);
-
-            if (user == null || !user.IsActive)
-            {
-                throw new ForbiddenException(
-                    "Donor account is already inactive.");
             }
 
             user.IsActive = false;

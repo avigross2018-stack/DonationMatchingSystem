@@ -21,7 +21,7 @@ namespace BackendService.Services
         private readonly IRedemptionRepo _redemptionRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly MatchingEventQueue _matchingQueue;
-        private readonly ILogger<AuthService> _logger;
+        private readonly ILogger<DonationService> _logger;
 
         public DonationService(
             IDonationRepo donationRepo,
@@ -31,7 +31,7 @@ namespace BackendService.Services
             IRedemptionRepo redemptionRepo,
             IUnitOfWork unitOfWork,
             MatchingEventQueue matchingQueue,
-            ILogger<AuthService> logger)
+            ILogger<DonationService> logger)
         {
             _donationRepo = donationRepo;
             _donorRepo = donorRepo;
@@ -48,7 +48,11 @@ namespace BackendService.Services
             CreateDonationDto dto
         )
         {
-            var user = await _userRepo.GetByIdAsync(userId);
+            await using var transaction =
+                await _unitOfWork.BeginTransactionAsync(
+                    IsolationLevel.ReadCommitted);
+
+            var user = await _userRepo.GetByIdForUpdateAsync(userId);
 
             if (user == null || !user.IsActive || user.UserType != "DONOR")
             {
@@ -106,6 +110,8 @@ namespace BackendService.Services
             await _donationRepo.AddAsync(donation);
 
             await _unitOfWork.SaveChangesAsync();
+            
+            await transaction.CommitAsync();
             
             // Notify matching worker about the new donation
             try

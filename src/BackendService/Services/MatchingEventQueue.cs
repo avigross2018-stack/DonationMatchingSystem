@@ -21,15 +21,21 @@ namespace BackendService.Services
                 }
             );
         }
+        
         public async Task EnqueueAsync(
             MatchingEvent matchingEvent,
             CancellationToken cancellationToken = default)
         {
+            using var timeout = CancellationTokenSource
+                .CreateLinkedTokenSource(cancellationToken);
+
+            timeout.CancelAfter(TimeSpan.FromSeconds(3));
+
             await _channel.Writer.WriteAsync(
                 matchingEvent,
-                cancellationToken
-            );
+                timeout.Token);
         }
+
 
         public IAsyncEnumerable<MatchingEvent> ReadAllAsync(
             CancellationToken cancellationToken = default

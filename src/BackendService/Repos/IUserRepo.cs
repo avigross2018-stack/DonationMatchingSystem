@@ -11,5 +11,8 @@ namespace BackendService.Repos
         Task<User?> GetByPhoneAsync(string phone);
         Task<User?> GetByIdAsync(int id);
         Task AddAsync(User user);
+        Task<User?> GetByIdForUpdateAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
     }
 }

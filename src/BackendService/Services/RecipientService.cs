@@ -20,6 +20,7 @@ namespace BackendService.Services
         private readonly MatchingEventQueue _matchingQueue;
         private readonly IPopulationTypeRepo _populationTypeRepo;
         private readonly IUserRepo _userRepo;
+        private readonly ILogger<RecipientService> _logger;
 
         public RecipientService(
             IRecipientRepo recipientRepo,
@@ -28,7 +29,8 @@ namespace BackendService.Services
             EligibilityService eligibilityService,
             MatchingEventQueue matchingQueue,
             IPopulationTypeRepo populationTypeRepo,
-            IUserRepo userRepo
+            IUserRepo userRepo,
+            ILogger<RecipientService> logger
             )
         {
             _recipientRepo = recipientRepo;
@@ -38,6 +40,7 @@ namespace BackendService.Services
             _matchingQueue = matchingQueue;
             _populationTypeRepo = populationTypeRepo;
             _userRepo = userRepo;
+            _logger = logger;
         }
 
         public async Task<RecipientProfileDto> GetMyProfileAsync(
@@ -147,14 +150,41 @@ namespace BackendService.Services
                 await transaction.CommitAsync(cancellationToken);
             }
 
+
             if (shouldRematch)
             {
-                await _matchingQueue.EnqueueAsync(
-                    new MatchingEvent(
-                        MatchingEventType.RecipientRegistered,
-                        recipientId),
-                    cancellationToken);
+                try
+                {
+                    await _matchingQueue.EnqueueAsync(
+                        new MatchingEvent(
+                            MatchingEventType.RecipientRegistered,
+                            recipientId),
+                        cancellationToken);
+                }
+                catch (OperationCanceledException ex)
+                    when (!cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Matching event enqueue timed out for recipient {RecipientId}",
+                        recipientId);
+                }
+                catch (OperationCanceledException)
+                    when (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(
+                        "Request was cancelled after saving recipient {RecipientId}",
+                        recipientId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to enqueue matching event for recipient {RecipientId}",
+                        recipientId);
+                }
             }
+
         }
 
         public async Task<List<RedemptionResponseDto>> GetMyRedemptionsAsync(

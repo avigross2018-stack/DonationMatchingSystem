@@ -30,9 +30,7 @@ namespace BackendService.Repos
 
         Task<List<Redemption>> GetPendingByRecipientIdAsync(
             int recipientId,
-
-        Task<List<Redemption>> GetPendingByDonationIdAsync(
-            int donationId);
+            CancellationToken cancellationToken = default);
 
         Task<(List<Redemption> Items, int TotalCount)> GetForAdminAsync(
             int? populationTypeId,

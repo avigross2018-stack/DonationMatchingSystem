@@ -227,9 +227,6 @@ namespace BackendService.Services
             await _unitOfWork.SaveChangesAsync();
 
             // Send matching event after successful save
-            
-            await _unitOfWork.SaveChangesAsync();
-
             try
             {
                 await _matchingQueue.EnqueueAsync(

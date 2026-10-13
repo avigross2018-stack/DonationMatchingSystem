@@ -68,7 +68,7 @@ namespace BackendService.Repos
         {
             // Recalling and updating entity values on track.
             await _appDb.Entry(recipient)
-        .       ReloadAsync(cancellationToken);
+                .ReloadAsync(cancellationToken);
         }
 
         public async Task<Recipient?> GetByIdNoTrackingAsync(
