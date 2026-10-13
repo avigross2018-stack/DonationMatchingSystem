@@ -1,4 +1,3 @@
-
 using BackendService.DTOs;
 using BackendService.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -67,8 +66,14 @@ namespace BackendService.Controllers
 
             return Ok(result);
         }
-        
+
         [HttpPut("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Update(
             [FromRoute] int id,
             [FromBody] UpdateAdminDonationDto request,
@@ -77,6 +82,24 @@ namespace BackendService.Controllers
             await _adminDonationService.UpdateAsync(
                 id,
                 request,
+                cancellationToken);
+
+            return NoContent();
+        }
+
+        [HttpPost("{id:int}/cancel")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> Cancel(
+            [FromRoute] int id,
+            CancellationToken cancellationToken)
+        {
+            await _adminDonationService.CancelAsync(
+                id,
                 cancellationToken);
 
             return NoContent();

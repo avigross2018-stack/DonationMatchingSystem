@@ -125,10 +125,9 @@ namespace BackendService.Services
                     "Donation ID must be positive.");
             }
 
-            var donation =
-                await _donationRepo.GetByIdForAdminAsync(
-                    donationId,
-                    cancellationToken);
+            var donation = await _donationRepo.GetByIdForAdminAsync(
+                donationId,
+                cancellationToken);
 
             if (donation is null)
             {
@@ -202,17 +201,15 @@ namespace BackendService.Services
                     "Expiration date must be in the future.");
             }
 
-            // Begin a transaction before locking the donation.
+            // Start the transaction before locking the donation.
             await using var transaction =
                 await _unitOfWork.BeginTransactionAsync(
                     IsolationLevel.ReadCommitted,
                     cancellationToken);
 
-            // Lock the donation row to serialize concurrent updates.
-            var donation =
-                await _donationRepo.GetByIdForUpdateAsync(
-                    donationId,
-                    cancellationToken);
+            var donation = await _donationRepo.GetByIdForUpdateAsync(
+                donationId,
+                cancellationToken);
 
             if (donation is null)
             {
@@ -231,7 +228,6 @@ namespace BackendService.Services
                     "Only active, non-expired donations can be edited.");
             }
 
-            // Calculate the amount already approved in completed redemptions.
             var completedTotal =
                 await _redemptionRepo.GetCompletedTotalByDonationIdAsync(
                     donationId,
@@ -255,6 +251,59 @@ namespace BackendService.Services
 
             donation.Description = request.Description;
             donation.ExpirationDate = newExpirationDate;
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        public async Task CancelAsync(
+            int donationId,
+            CancellationToken cancellationToken = default)
+        {
+            if (donationId <= 0)
+            {
+                throw new BusinessValidationException(
+                    "Donation ID must be positive.");
+            }
+
+            await using var transaction =
+                await _unitOfWork.BeginTransactionAsync(
+                    IsolationLevel.ReadCommitted,
+                    cancellationToken);
+
+            // Lock the donation first to serialize cancellation and redemption approval.
+            var donation = await _donationRepo.GetByIdForUpdateAsync(
+                donationId,
+                cancellationToken);
+
+            if (donation is null)
+            {
+                throw new ResourceNotFoundException(
+                    $"Donation with ID {donationId} was not found.");
+            }
+
+            if (donation.Status != "ACTIVE")
+            {
+                throw new ConflictException(
+                    "Only active donations can be cancelled.");
+            }
+
+            // Read pending redemptions after acquiring the donation lock.
+            var pendingRedemptions =
+                await _redemptionRepo.GetPendingByDonationIdAsync(
+                    donationId);
+
+            donation.Status = "CANCELLED";
+
+            foreach (var redemption in pendingRedemptions)
+            {
+                // Completed and rejected redemptions are never modified.
+                if (redemption.Status == "PENDING")
+                {
+                    redemption.Status = "CANCELLED";
+                }
+            }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
