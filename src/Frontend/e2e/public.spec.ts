@@ -1,0 +1,2 @@
+import { expect, test } from '@playwright/test';
+test('public landing and login are accessible', async ({ page }) => { await page.goto('/'); await expect(page.getByRole('heading', { name: /מחברים בין רצון טוב/ })).toBeVisible(); await page.getByRole('link', { name: /כניסה/ }).first().click(); await expect(page.getByRole('heading', { name: 'שמחים שחזרת' })).toBeVisible(); await expect(page.getByLabel('מספר טלפון')).toBeVisible(); });

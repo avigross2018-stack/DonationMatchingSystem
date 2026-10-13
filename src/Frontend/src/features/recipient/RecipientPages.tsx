@@ -1,0 +1,45 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Alert, Button, Card, CardContent, Grid, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import AccountBalanceWalletRounded from '@mui/icons-material/AccountBalanceWalletRounded';
+import PendingActionsRounded from '@mui/icons-material/PendingActionsRounded';
+import RedeemRounded from '@mui/icons-material/RedeemRounded';
+import VerifiedRounded from '@mui/icons-material/VerifiedRounded';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { z } from 'zod';
+import { normalizeError } from '../../api/client';
+import { queryKeys } from '../../api/queryKeys';
+import { recipientApi } from '../../api/services';
+import { useFeedback } from '../../app/FeedbackContext';
+import { useAuth } from '../../auth/AuthContext';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { MetricCard } from '../../components/MetricCard';
+import { PageHeader } from '../../components/PageHeader';
+import { EmptyState, ErrorState, PageLoading } from '../../components/States';
+import { StatusChip } from '../../components/StatusChip';
+import { formatCurrency, formatDate } from '../../lib/formatters';
+
+function useRecipientData() { const profile = useQuery({ queryKey: queryKeys.recipientProfile, queryFn: recipientApi.profile }); const redemptions = useQuery({ queryKey: queryKeys.recipientRedemptions, queryFn: recipientApi.redemptions }); return { profile, redemptions }; }
+
+export function RecipientDashboard() {
+  const { profile, redemptions } = useRecipientData(); if (profile.isLoading || redemptions.isLoading) return <PageLoading />; if (profile.isError || redemptions.isError) return <ErrorState onRetry={() => { profile.refetch(); redemptions.refetch(); }} />;
+  const rows = redemptions.data || []; const pending = rows.filter((x) => x.status === 'PENDING').length; const completed = rows.filter((x) => x.status === 'COMPLETED').length;
+  return <><PageHeader title={`שלום ${profile.data?.name || ''}`} subtitle="הזכאות נקבעת ומחושבת בשרת לפי הפרטים המעודכנים" /><Alert severity="info" sx={{ mb: 3 }}>מימוש במצב “ממתין לאישור” הוא הצעה בלבד ואינו מהווה התחייבות לסכום.</Alert><Grid container spacing={2.5}><Grid size={{ xs: 12, sm: 6, lg: 3 }}><MetricCard label="זכאות כוללת" value={formatCurrency(profile.data?.eligibilityAmount || 0)} icon={<VerifiedRounded />} /></Grid><Grid size={{ xs: 12, sm: 6, lg: 3 }}><MetricCard label="יתרת זכאות" value={formatCurrency(profile.data?.remainingEligibility || 0)} icon={<AccountBalanceWalletRounded />} /></Grid><Grid size={{ xs: 12, sm: 6, lg: 3 }}><MetricCard label="ממתינים לאישור" value={pending} icon={<PendingActionsRounded />} /></Grid><Grid size={{ xs: 12, sm: 6, lg: 3 }}><MetricCard label="מימושים שהושלמו" value={completed} icon={<RedeemRounded />} /></Grid></Grid><Card sx={{ mt: 3 }}><CardContent><Typography variant="h3">פרטי הזכאות</Typography><Grid container spacing={2} sx={{ mt: 1 }}><Grid size={{ xs: 12, sm: 4 }}><Typography color="text.secondary">סוג אוכלוסייה</Typography><Typography fontWeight={700}>{profile.data?.populationTypeName}</Typography></Grid><Grid size={{ xs: 12, sm: 4 }}><Typography color="text.secondary">מספר ילדים</Typography><Typography fontWeight={700}>{profile.data?.amountOfChildren}</Typography></Grid><Grid size={{ xs: 12, sm: 4 }}><Typography color="text.secondary">הכנסה מדווחת</Typography><Typography fontWeight={700}>{formatCurrency(profile.data?.incomeAmount || 0)}</Typography></Grid></Grid></CardContent></Card></>;
+}
+
+export function RecipientRedemptionsPage() {
+  const query = useQuery({ queryKey: queryKeys.recipientRedemptions, queryFn: recipientApi.redemptions });
+  return <><PageHeader title="המימושים שלי" subtitle="היסטוריית התאמות והסטטוס העדכני שלהן" /><Alert severity="info" sx={{ mb: 3 }}>סטטוס ממתין אינו אישור סופי ואינו שומר יתרה.</Alert><Card><CardContent>{query.isLoading ? <PageLoading /> : query.isError ? <ErrorState onRetry={() => query.refetch()} /> : !query.data?.length ? <EmptyState title="אין מימושים להצגה" message="כאשר תיווצר התאמה, היא תופיע כאן." /> : <><Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>{query.data.map((r) => <Card variant="outlined" key={r.id}><CardContent><Stack direction="row" justifyContent="space-between"><Typography fontWeight={700}>{r.donationDescription || `מימוש #${r.id}`}</Typography><StatusChip status={r.status} /></Stack><Typography variant="h3" sx={{ mt: 2 }}>{formatCurrency(r.amount)}</Typography><Typography color="text.secondary">נוצר ב־{formatDate(r.createdAt)}</Typography></CardContent></Card>)}</Stack><TableContainer sx={{ display: { xs: 'none', md: 'block' } }}><Table><TableHead><TableRow><TableCell>תרומה</TableCell><TableCell>סכום</TableCell><TableCell>נוצר</TableCell><TableCell>מומש</TableCell><TableCell>סטטוס</TableCell></TableRow></TableHead><TableBody>{query.data.map((r) => <TableRow key={r.id}><TableCell>{r.donationDescription || `תרומה #${r.donationId}`}</TableCell><TableCell>{formatCurrency(r.amount)}</TableCell><TableCell>{formatDate(r.createdAt)}</TableCell><TableCell>{formatDate(r.redeemedAt)}</TableCell><TableCell><StatusChip status={r.status} /></TableCell></TableRow>)}</TableBody></Table></TableContainer></>}</CardContent></Card></>;
+}
+
+const profileSchema = z.object({ incomeAmount: z.number().min(0).max(99999999.99), amountOfChildren: z.number().int().min(0), requestReason: z.string().max(250).optional() });
+type ProfileForm = z.infer<typeof profileSchema>;
+export function RecipientProfilePage() {
+  const query = useQuery({ queryKey: queryKeys.recipientProfile, queryFn: recipientApi.profile }); const client = useQueryClient(); const { notify } = useFeedback(); const { signOut } = useAuth(); const [confirm, setConfirm] = useState(false); const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ProfileForm>({ resolver: zodResolver(profileSchema) }); const requestReason = useWatch({ control, name: 'requestReason' });
+  useEffect(() => { if (query.data) reset({ incomeAmount: query.data.incomeAmount, amountOfChildren: query.data.amountOfChildren, requestReason: query.data.requestReason || '' }); }, [query.data, reset]);
+  const update = useMutation({ mutationFn: recipientApi.update, onSuccess: async () => { await client.invalidateQueries({ queryKey: queryKeys.recipientProfile }); notify('הפרופיל והזכאות עודכנו לפי חישוב השרת'); }, onError: (e) => notify(normalizeError(e).message, 'error') });
+  const deactivate = useMutation({ mutationFn: recipientApi.deactivate, onSuccess: signOut, onError: (e) => notify(normalizeError(e).message, 'error') });
+  if (query.isLoading) return <PageLoading />; if (query.isError) return <ErrorState onRetry={() => query.refetch()} />;
+  return <><PageHeader title="הפרופיל שלי" subtitle="עדכון הנתונים יגרום לשרת לחשב מחדש את הזכאות" /><Grid container spacing={3}><Grid size={{ xs: 12, lg: 8 }}><Card><CardContent><Alert severity="info" sx={{ mb: 3 }}>שם: {query.data?.name} · טלפון: {query.data?.phone} · סוג אוכלוסייה: {query.data?.populationTypeName}. שדות אלה אינם ניתנים לעריכה כרגע.</Alert><Stack component="form" spacing={2.5} onSubmit={handleSubmit((data) => update.mutate({ ...data, requestReason: data.requestReason || null }))}><TextField label="הכנסה חודשית" type="number" error={Boolean(errors.incomeAmount)} helperText={errors.incomeAmount?.message} {...register('incomeAmount', { valueAsNumber: true })} /><TextField label="מספר ילדים" type="number" error={Boolean(errors.amountOfChildren)} helperText={errors.amountOfChildren?.message} {...register('amountOfChildren', { valueAsNumber: true })} /><TextField label="סיבת הבקשה" multiline minRows={4} error={Boolean(errors.requestReason)} helperText={`${requestReason?.length || 0}/250`} {...register('requestReason')} /><Button type="submit" variant="contained" disabled={update.isPending} sx={{ alignSelf: 'flex-start' }}>{update.isPending ? 'מעדכנים…' : 'עדכון וחישוב זכאות'}</Button></Stack></CardContent></Card></Grid><Grid size={{ xs: 12, lg: 4 }}><Card><CardContent><Typography color="text.secondary">יתרת זכאות נוכחית</Typography><Typography variant="h3" sx={{ my: 1 }}>{formatCurrency(query.data?.remainingEligibility || 0)}</Typography><Typography variant="body2">הסכום מוצג מתשובת השרת בלבד.</Typography></CardContent></Card><Card sx={{ mt: 2, borderColor: 'error.light' }}><CardContent><Typography variant="h3">השבתת חשבון</Typography><Typography color="text.secondary" sx={{ my: 2 }}>מימושים ממתינים יבוטלו לאחר ההשבתה.</Typography><Button color="error" variant="outlined" onClick={() => setConfirm(true)}>השבתת החשבון</Button></CardContent></Card></Grid></Grid><ConfirmDialog open={confirm} title="השבתת החשבון" message="לאחר ההשבתה לא ניתן יהיה להיכנס לחשבון." warning="מימושים ממתינים יבוטלו." confirmLabel="השבתת החשבון" danger loading={deactivate.isPending} onClose={() => setConfirm(false)} onConfirm={() => deactivate.mutate()} /></>;
+}
