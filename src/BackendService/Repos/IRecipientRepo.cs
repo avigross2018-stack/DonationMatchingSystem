@@ -28,5 +28,9 @@ namespace BackendService.Repos
             CancellationToken cancellationToken = default);
 
         Task<bool> IsRecipientActiveAsync(int recipientId);
+
+        Task<Recipient?> GetByUserIdForUpdateAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
     }
 }

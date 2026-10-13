@@ -69,6 +69,8 @@ builder.Services.AddScoped<DonationMatchingService>();
 builder.Services.AddSingleton<MatchingEventQueue>();
 builder.Services.AddHostedService<DonationMatchingWorker>();
 builder.Services.AddScoped<EligibilityService>();
+builder.Services.AddScoped<RecipientService>();
+builder.Services.AddScoped<DonorService>();
 
 var jwtKey = builder.Configuration["JWT:KEY"]
     ?? throw new InvalidOperationException("JWT key is missing");
@@ -105,6 +107,34 @@ builder.Services.AddAuthentication(
 
         ClockSkew = TimeSpan.Zero
     };
+
+
+    op.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var userIdValue = context.Principal?
+                .FindFirst("sub")?.Value;
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                context.Fail("Invalid user identifier.");
+                return;
+            }
+
+            var userRepo = context.HttpContext.RequestServices
+                .GetRequiredService<IUserRepo>();
+
+            var user = await userRepo.GetByIdAsync(userId);
+
+            if (user == null || !user.IsActive)
+            {
+                context.Fail("User account is inactive or unavailable.");
+                return;
+            }
+        }
+    };
+
 });
 
 builder.Services.AddAuthorization();

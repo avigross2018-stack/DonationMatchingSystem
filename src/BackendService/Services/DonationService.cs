@@ -8,6 +8,7 @@ using BackendService.DTOs;
 using BackendService.Exceptions;
 using BackendService.Models;
 using BackendService.Repos;
+using BackendService.Validation;
 
 namespace BackendService.Services
 {
@@ -20,6 +21,7 @@ namespace BackendService.Services
         private readonly IRedemptionRepo _redemptionRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly MatchingEventQueue _matchingQueue;
+        private readonly ILogger<AuthService> _logger;
 
         public DonationService(
             IDonationRepo donationRepo,
@@ -28,7 +30,8 @@ namespace BackendService.Services
             IUserRepo userRepo,
             IRedemptionRepo redemptionRepo,
             IUnitOfWork unitOfWork,
-            MatchingEventQueue matchingQueue)
+            MatchingEventQueue matchingQueue,
+            ILogger<AuthService> logger)
         {
             _donationRepo = donationRepo;
             _donorRepo = donorRepo;
@@ -37,6 +40,7 @@ namespace BackendService.Services
             _redemptionRepo = redemptionRepo;
             _unitOfWork = unitOfWork;
             _matchingQueue = matchingQueue;
+            _logger = logger;
         }
 
         public async Task<int> CreateDonationAsync(
@@ -70,11 +74,11 @@ namespace BackendService.Services
             }
 
             // Validate business rules
-            if (dto.TotalAmount <= 0 ||
-                dto.MaxAmountPerRecipient <= 0)
+            if (!MoneyValidator.IsValidPositiveAmount(dto.TotalAmount) ||
+                !MoneyValidator.IsValidPositiveAmount(dto.MaxAmountPerRecipient))
             {
                 throw new BusinessValidationException(
-                    "Donation amounts must be positive.");
+                    "Donation amounts must be positive, within range, and have at most two decimal places.");
             }
 
             var now = DateTime.UtcNow;
@@ -104,10 +108,20 @@ namespace BackendService.Services
             await _unitOfWork.SaveChangesAsync();
             
             // Notify matching worker about the new donation
-            await _matchingQueue.EnqueueAsync(
-                new MatchingEvent(
-                    MatchingEventType.DonationCreated,
-                    donation.Id));
+            try
+            {
+                await _matchingQueue.EnqueueAsync(
+                    new MatchingEvent(
+                        MatchingEventType.DonationCreated,
+                        donation.Id));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to enqueue matching event for donation {DonationId}",
+                    donation.Id);
+            }
 
             return donation.Id;
         }
@@ -116,10 +130,10 @@ namespace BackendService.Services
         {
             var donor = await _donorRepo.GetByUserIdAsync(userId);
 
-            if (donor == null)
+            if (donor == null || !donor.User.IsActive)
             {
-                throw new ResourceNotFoundException(
-                    "Donor profile not found.");
+                throw new ForbiddenException(
+                    "Donor account is inactive or unavailable.");
             }
 
             var donations = await _donationRepo.GetByDonorIdAsync(donor.Id);
@@ -157,9 +171,11 @@ namespace BackendService.Services
 
             if (expirationDate <= utcNow)
             {
-                throw new ArgumentException(
+                throw new BusinessValidationException(
                     "Expiration date must be in the future.");
             }
+
+            bool shouldRematch = false;
 
             // Begin transaction
             await using var transaction =
@@ -170,7 +186,7 @@ namespace BackendService.Services
             var donation = await _donationRepo
                 .GetByIdForUpdateAsync(donationId);
 
-            if (donation == null)
+            if(donation == null)
             {
                 throw new ResourceNotFoundException(
                     "Donation not found.");
@@ -192,11 +208,11 @@ namespace BackendService.Services
             }
 
             // Validate input
-            if (dto.TotalAmount <= 0 ||
-                dto.MaxAmountPerRecipient <= 0)
+            if (!MoneyValidator.IsValidPositiveAmount(dto.TotalAmount) ||
+                !MoneyValidator.IsValidPositiveAmount(dto.MaxAmountPerRecipient))
             {
                 throw new BusinessValidationException(
-                    "Amounts must be positive.");
+                    "Invalid donation amount or recipient limit.");
             }
 
             if (dto.ExpirationDate.ToUniversalTime() <= DateTime.UtcNow)
@@ -215,6 +231,10 @@ namespace BackendService.Services
                     "Total amount cannot be lower than already redeemed amount.");
             }
 
+            shouldRematch =
+                dto.TotalAmount > donation.TotalAmount ||
+                dto.MaxAmountPerRecipient > donation.MaxAmountPerRecipient;
+
             // Update donation
             donation.TotalAmount = dto.TotalAmount;
             donation.RemainingAmount =
@@ -229,6 +249,24 @@ namespace BackendService.Services
             await _unitOfWork.SaveChangesAsync();
 
             await transaction.CommitAsync();
+
+            if (shouldRematch)
+            {
+                try
+                {
+                    await _matchingQueue.EnqueueAsync(
+                        new MatchingEvent(
+                            MatchingEventType.DonationUpdated,
+                            donationId));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to enqueue matching event for updated donation {DonationId}",
+                        donationId);
+                }
+            }
         }
 
         public async Task CancelDonationAsync(int userId, int donationId)
@@ -237,7 +275,7 @@ namespace BackendService.Services
 
             if (donor == null || !donor.User.IsActive)
             {
-                throw new UnauthorizedAccessException(
+                throw new ForbiddenException(
                     "Donor profile not found or inactive.");
             }
 
@@ -251,20 +289,20 @@ namespace BackendService.Services
 
             if (donation == null)
             {
-                throw new KeyNotFoundException(
+                throw new ResourceNotFoundException(
                     "Donation not found.");
             }
 
             if (donation.DonorId != donor.Id)
             {
-                throw new UnauthorizedAccessException(
+                throw new ForbiddenException(
                     "You cannot cancel this donation.");
             }
 
             if (donation.Status != "ACTIVE" ||
                 donation.ExpirationDate <= DateTime.UtcNow)
             {
-                throw new InvalidOperationException(
+                throw new ConflictException(
                     "Donation is not active or has expired.");
             }
 

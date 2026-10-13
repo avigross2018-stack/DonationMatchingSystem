@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using BackendService.DTOs;
 using BackendService.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BackendService.Controllers
@@ -66,5 +68,23 @@ namespace BackendService.Controllers
                 UserId = userId
             });
         }
+
+        [Authorize]
+        [HttpPut("change-password")]
+        public async Task<IActionResult> ChangePassword(
+            [FromBody] ChangePasswordDto dto)
+        {
+            var userIdValue = User.FindFirstValue("sub");
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            await _authService.ChangePasswordAsync(userId, dto);
+
+            return NoContent();
+        }
+
     }
 }

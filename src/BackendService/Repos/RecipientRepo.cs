@@ -48,6 +48,9 @@ namespace BackendService.Repos
         public async Task<Recipient?> GetByUserIdAsync(int userId)
         {
             return await _appDb.Recipients
+                .AsNoTracking()
+                .Include(r => r.User)
+                .Include(r => r.PopulationType)
                 .FirstOrDefaultAsync(r => r.UserId == userId);
         }
 
@@ -86,6 +89,24 @@ namespace BackendService.Repos
                 .AnyAsync(r =>
                     r.Id == recipientId &&
                     r.User.IsActive);
+        }
+        
+        public async Task<Recipient?> GetByUserIdForUpdateAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _appDb.Recipients
+                .FromSqlInterpolated(
+                    $"SELECT * FROM `Recipients` WHERE `UserId` = {userId} FOR UPDATE")
+                .AsAsyncEnumerable();
+
+            await foreach (var recipient in
+                query.WithCancellation(cancellationToken))
+            {
+                return recipient;
+            }
+
+            return null;
         }
     }
 }
