@@ -68,6 +68,7 @@ builder.Services.AddScoped<DonationService>();
 builder.Services.AddScoped<DonationMatchingService>();
 builder.Services.AddSingleton<MatchingEventQueue>();
 builder.Services.AddHostedService<DonationMatchingWorker>();
+builder.Services.AddScoped<EligibilityService>();
 
 var jwtKey = builder.Configuration["JWT:KEY"]
     ?? throw new InvalidOperationException("JWT key is missing");
@@ -158,4 +159,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+
 app.Run();
+
+// Exposes the top-level entry point to WebApplicationFactory without changing
+// production behavior.
+public partial class Program { }
+
