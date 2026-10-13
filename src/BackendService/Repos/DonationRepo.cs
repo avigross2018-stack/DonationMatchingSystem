@@ -1,4 +1,3 @@
-
 using BackendService.Data;
 using BackendService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +27,7 @@ namespace BackendService.Repos
                 .Where(d =>
                     d.Status == "ACTIVE" &&
                     (d.ExpirationDate == null ||
-                    d.ExpirationDate > utcNow) &&
+                     d.ExpirationDate > utcNow) &&
                     d.RemainingAmount > 0 &&
                     d.Donor.User.IsActive)
                 .ToListAsync(cancellationToken);
@@ -176,6 +175,8 @@ namespace BackendService.Repos
                 .Include(d => d.Donor)
                     .ThenInclude(donor => donor.User)
                 .Include(d => d.PopulationType);
+        }
+
         public async Task<List<int>> GetActiveDonationIdsByDonorIdAsync(
             int donorId,
             CancellationToken cancellationToken = default)

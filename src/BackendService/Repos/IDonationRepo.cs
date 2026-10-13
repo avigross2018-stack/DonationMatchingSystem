@@ -38,6 +38,8 @@ namespace BackendService.Repos
 
         Task<Donation?> GetByIdForAdminAsync(
             int donationId,
+            CancellationToken cancellationToken = default);
+
         Task<List<int>> GetActiveDonationIdsByDonorIdAsync(
             int donorId,
             CancellationToken cancellationToken = default);
