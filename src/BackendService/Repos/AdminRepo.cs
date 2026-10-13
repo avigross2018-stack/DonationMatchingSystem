@@ -15,15 +15,21 @@ namespace BackendService.Repos
 
         public async Task AddAsync(Admin admin)
         {
-            // Only tracks the entity; the INSERT happens on SaveChangesAsync
+            // Saving is handled by UnitOfWork.
             await _appDb.Admins.AddAsync(admin);
         }
 
-        public async Task<Admin?> GetByUserIdAsync(int userId)
+        public async Task<Admin?> GetByUserIdAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
         {
-            // Returns null when the user has no Admin profile
+            // Load the admin and its linked user in one database query.
             return await _appDb.Admins
-                .FirstOrDefaultAsync(a => a.UserId == userId);
+                .AsNoTracking()
+                .Include(admin => admin.User)
+                .FirstOrDefaultAsync(
+                    admin => admin.UserId == userId,
+                    cancellationToken);
         }
     }
 }

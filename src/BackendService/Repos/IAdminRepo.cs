@@ -4,10 +4,12 @@ namespace BackendService.Repos
 {
     public interface IAdminRepo
     {
-        // Adds an Admin to the DbContext (not saved to the DB until SaveChangesAsync is called)
+        // Tracks an admin for insertion; saving is handled by UnitOfWork.
         Task AddAsync(Admin admin);
 
-        // Returns the Admin profile linked to the given user id, or null if none exists
-        Task<Admin?> GetByUserIdAsync(int userId);
+        // Returns the admin profile and its linked user.
+        Task<Admin?> GetByUserIdAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
     }
 }
