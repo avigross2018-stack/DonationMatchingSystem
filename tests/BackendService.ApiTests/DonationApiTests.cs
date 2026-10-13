@@ -300,9 +300,31 @@ public sealed class DonationApiTests(ApiTestFixture fixture)
         using var secondRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/donations/{donation.Id}/cancel").WithBearer(token);
         using var second = await Client.SendAsync(secondRequest);
 
-        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
-        var body = await second.ReadJsonAsync();
-        Assert.True(body.TryGetProperty("message", out _));
+    Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+
+    var body = await second.Content
+        .ReadFromJsonAsync<JsonElement>();
+
+    Assert.Equal(
+        409,
+        body.GetProperty("status").GetInt32());
+
+    Assert.Equal(
+        "Conflict",
+        body.GetProperty("title").GetString());
+
+    Assert.Equal(
+        "Donation is not active or has expired.",
+        body.GetProperty("detail").GetString());
+
+    Assert.True(
+        body.TryGetProperty("instance", out _));
+
+    Assert.True(
+        body.TryGetProperty("traceId", out var traceId));
+
+    Assert.False(
+        string.IsNullOrWhiteSpace(traceId.GetString()));
     }
 
     private async Task<Donation> SeedDonationAsync(

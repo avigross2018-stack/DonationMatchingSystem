@@ -136,10 +136,16 @@ namespace BackendService.Services
         {
             var donor = await _donorRepo.GetByUserIdAsync(userId);
 
-            if (donor == null || !donor.User.IsActive)
+            if (donor == null)
+            {
+                throw new ResourceNotFoundException(
+                    "Donor profile not found.");
+            }
+
+            if (!donor.User.IsActive)
             {
                 throw new ForbiddenException(
-                    "Donor account is inactive or unavailable.");
+                    "Donor account is inactive.");
             }
 
             var donations = await _donationRepo.GetByDonorIdAsync(donor.Id);

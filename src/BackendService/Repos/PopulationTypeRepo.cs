@@ -75,5 +75,14 @@ namespace BackendService.Repos
                 populationType,
                 cancellationToken);
         }
+        public async Task<List<PopulationType>> GetActiveAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.PopulationTypes
+                .AsNoTracking()
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Name)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

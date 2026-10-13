@@ -1,7 +1,6 @@
 services:
   mysql:
     image: mysql:8.4
-    container_name: mysql
     restart: unless-stopped
     ports:
       - "3310:3306"
@@ -16,7 +15,68 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-  
+
+  database-init:
+    build:
+      context: ./src/BaseScriptService
+    restart: "no"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_ROOT_USER: ${MYSQL_ROOT_USER:-root}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./src/BackendService
+    restart: unless-stopped
+    ports:
+      - "5255:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_ROOT_USER: ${MYSQL_ROOT_USER:-root}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      JWT__KEY: ${JWT__KEY}
+      JWT__ISSUER: ${JWT__ISSUER}
+      JWT__AUDIENCE: ${JWT__AUDIENCE}
+      JWT__EXPIRATION_MINUTES: ${JWT__EXPIRATION_MINUTES:-30}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./src/Frontend
+      args:
+        VITE_API_BASE_URL: /api
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   mysql_data:

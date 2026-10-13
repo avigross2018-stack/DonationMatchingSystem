@@ -181,11 +181,34 @@ public sealed class LoginAndAuthorizationTests(ApiTestFixture fixture)
     [InlineData("ADMIN", "/api/test/admin", HttpStatusCode.OK)]
     [InlineData("DONOR", "/api/test/admin", HttpStatusCode.Forbidden)]
     public async Task RoleProbe_EnforcesDeclaredRoles(
-        string role, string path, HttpStatusCode expected)
+        string role,
+        string path,
+        HttpStatusCode expected)
     {
-        var token = JwtTestTokens.Create(123, role);
-        using var request = new HttpRequestMessage(HttpMethod.Get, path).WithBearer(token);
+        int? populationTypeId = null;
+
+        if (role == "RECIPIENT")
+        {
+            var population = await Fixture.SeedPopulationTypeAsync();
+            populationTypeId = population.Id;
+        }
+
+        var user = await Fixture.SeedUserAsync(
+            role,
+            $"+97252{Guid.NewGuid():N}"[..14],
+            populationTypeId: populationTypeId);
+
+        var token = JwtTestTokens.Create(
+            user.Id,
+            role);
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            path)
+            .WithBearer(token);
+
         using var response = await Client.SendAsync(request);
+
         Assert.Equal(expected, response.StatusCode);
     }
 }

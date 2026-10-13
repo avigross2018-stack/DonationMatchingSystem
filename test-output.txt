@@ -1,0 +1,73 @@
+/home/avi-gross/Desktop/DonationMatchingSystem/src/BackendService/BackendService.csproj : warning NU1510: PackageReference Microsoft.Extensions.Hosting will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary.
+  BackendService -> /home/avi-gross/Desktop/DonationMatchingSystem/src/BackendService/bin/Debug/net10.0/BackendService.dll
+  BackendService.ApiTests -> /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/bin/Debug/net10.0/BackendService.ApiTests.dll
+Test run for /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/bin/Debug/net10.0/BackendService.ApiTests.dll (.NETCoreApp,Version=v10.0)
+VSTest version 18.0.2 (x64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:25.26]     BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "DONOR", path: "/api/test/admin", expected: Forbidden) [FAIL]
+[xUnit.net 00:00:25.53]     BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "ADMIN", path: "/api/test/donor-or-admin", expected: OK) [FAIL]
+[xUnit.net 00:00:25.75]     BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "RECIPIENT", path: "/api/test/donor-or-admin", expected: Forbidden) [FAIL]
+[xUnit.net 00:00:25.97]     BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "DONOR", path: "/api/test/donor-or-admin", expected: OK) [FAIL]
+[xUnit.net 00:00:26.18]     BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "ADMIN", path: "/api/test/admin", expected: OK) [FAIL]
+  Failed BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "DONOR", path: "/api/test/admin", expected: Forbidden) [10 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   Unauthorized
+  Stack Trace:
+     at BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(String role, String path, HttpStatusCode expected) in /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/LoginAndAuthorizationTests.cs:line 189
+--- End of stack trace from previous location ---
+  Failed BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "ADMIN", path: "/api/test/donor-or-admin", expected: OK) [8 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   Unauthorized
+  Stack Trace:
+     at BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(String role, String path, HttpStatusCode expected) in /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/LoginAndAuthorizationTests.cs:line 189
+--- End of stack trace from previous location ---
+  Failed BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "RECIPIENT", path: "/api/test/donor-or-admin", expected: Forbidden) [9 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   Unauthorized
+  Stack Trace:
+     at BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(String role, String path, HttpStatusCode expected) in /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/LoginAndAuthorizationTests.cs:line 189
+--- End of stack trace from previous location ---
+  Failed BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "DONOR", path: "/api/test/donor-or-admin", expected: OK) [5 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   Unauthorized
+  Stack Trace:
+     at BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(String role, String path, HttpStatusCode expected) in /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/LoginAndAuthorizationTests.cs:line 189
+--- End of stack trace from previous location ---
+  Failed BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(role: "ADMIN", path: "/api/test/admin", expected: OK) [7 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   Unauthorized
+  Stack Trace:
+     at BackendService.ApiTests.LoginAndAuthorizationTests.RoleProbe_EnforcesDeclaredRoles(String role, String path, HttpStatusCode expected) in /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/LoginAndAuthorizationTests.cs:line 189
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:37.34]     BackendService.ApiTests.DonationApiTests.GetMyDonations_MissingProfile_ReturnsNotFoundProblemDetails [FAIL]
+  Failed BackendService.ApiTests.DonationApiTests.GetMyDonations_MissingProfile_ReturnsNotFoundProblemDetails [125 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: NotFound
+Actual:   Forbidden
+  Stack Trace:
+     at BackendService.ApiTests.DonationApiTests.GetMyDonations_MissingProfile_ReturnsNotFoundProblemDetails() in /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/DonationApiTests.cs:line 157
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:38.94]     BackendService.ApiTests.DonationApiTests.CancelDonation_Twice_SecondCallReturnsConflict [FAIL]
+  Failed BackendService.ApiTests.DonationApiTests.CancelDonation_Twice_SecondCallReturnsConflict [197 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at BackendService.ApiTests.DonationApiTests.CancelDonation_Twice_SecondCallReturnsConflict() in /home/avi-gross/Desktop/DonationMatchingSystem/tests/BackendService.ApiTests/DonationApiTests.cs:line 305
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     7, Passed:   106, Skipped:     0, Total:   113, Duration: 52 s - BackendService.ApiTests.dll (net10.0)

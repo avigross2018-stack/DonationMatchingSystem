@@ -76,7 +76,7 @@ builder.Services.AddHostedService<DonationMatchingWorker>();
 builder.Services.AddScoped<EligibilityService>();
 builder.Services.AddScoped<RecipientService>();
 builder.Services.AddScoped<DonorService>();
-builder.Services.AddScoped<AdminStatisticsService>();
+builder.Services.AddScoped<PopulationTypeService>();
 
 var jwtKey = builder.Configuration["JWT:KEY"]
     ?? throw new InvalidOperationException("JWT key is missing");
@@ -193,6 +193,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapGet("/health", async (AppDbContext dbContext, CancellationToken cancellationToken) =>
+    await dbContext.Database.CanConnectAsync(cancellationToken)
+        ? Results.Ok(new { status = "healthy" })
+        : Results.StatusCode(StatusCodes.Status503ServiceUnavailable));
 app.MapControllers();
 
 app.Run();

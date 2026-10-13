@@ -27,5 +27,8 @@ namespace BackendService.Repos
         Task AddAsync(
             PopulationType populationType,
             CancellationToken cancellationToken = default);
+        
+        Task<List<PopulationType>> GetActiveAsync(
+            CancellationToken cancellationToken = default);
     }
 }
