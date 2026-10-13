@@ -175,6 +175,8 @@ namespace BackendService.Services
                     "Expiration date must be in the future.");
             }
 
+            bool shouldRematch = false;
+
             // Begin transaction
             await using var transaction =
                 await _unitOfWork.BeginTransactionAsync(
@@ -229,6 +231,10 @@ namespace BackendService.Services
                     "Total amount cannot be lower than already redeemed amount.");
             }
 
+            shouldRematch =
+                dto.TotalAmount > donation.TotalAmount ||
+                dto.MaxAmountPerRecipient > donation.MaxAmountPerRecipient;
+
             // Update donation
             donation.TotalAmount = dto.TotalAmount;
             donation.RemainingAmount =
@@ -243,6 +249,24 @@ namespace BackendService.Services
             await _unitOfWork.SaveChangesAsync();
 
             await transaction.CommitAsync();
+
+            if (shouldRematch)
+            {
+                try
+                {
+                    await _matchingQueue.EnqueueAsync(
+                        new MatchingEvent(
+                            MatchingEventType.DonationUpdated,
+                            donationId));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to enqueue matching event for updated donation {DonationId}",
+                        donationId);
+                }
+            }
         }
 
         public async Task CancelDonationAsync(int userId, int donationId)

@@ -70,5 +70,19 @@ namespace BackendService.Repos
 
             return null;
         }
+
+        public async Task<List<int>> GetActiveDonationIdsByDonorIdAsync(
+            int donorId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Donations
+                .AsNoTracking()
+                .Where(d =>
+                    d.DonorId == donorId &&
+                    d.Status == "ACTIVE")
+                .OrderBy(d => d.Id)
+                .Select(d => d.Id)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

@@ -50,5 +50,23 @@ namespace BackendService.Controllers
             return NoContent();
         }
 
+        [HttpDelete("me")]
+        public async Task<IActionResult> DeactivateMyAccount(
+            CancellationToken cancellationToken)
+        {
+            var userIdValue = User.FindFirstValue("sub");
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            await _donorService.DeactivateMyAccountAsync(
+                userId,
+                cancellationToken);
+
+            return NoContent();
+        }
+
     }
 }

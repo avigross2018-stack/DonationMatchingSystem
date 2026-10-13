@@ -31,5 +31,9 @@ namespace BackendService.Repos
         Task<List<Redemption>> GetByRecipientIdAsync(
             int recipientId,
             CancellationToken cancellationToken = default);
+
+        Task<List<Redemption>> GetPendingByRecipientIdAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default);
     }
 }

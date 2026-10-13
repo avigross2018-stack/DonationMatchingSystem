@@ -58,7 +58,6 @@ namespace BackendService.Controllers
             return NoContent();
         }
 
-
         [HttpGet("me/redemptions")]
         public async Task<IActionResult> GetMyRedemptions(
             CancellationToken cancellationToken)
@@ -74,6 +73,24 @@ namespace BackendService.Controllers
                 .GetMyRedemptionsAsync(userId, cancellationToken);
 
             return Ok(redemptions);
+        }
+
+        [HttpDelete("me")]
+        public async Task<IActionResult> DeactivateMyAccount(
+            CancellationToken cancellationToken)
+        {
+            var userIdValue = User.FindFirstValue("sub");
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            await _recipientService.DeactivateMyAccountAsync(
+                userId,
+                cancellationToken);
+
+            return NoContent();
         }
 
     }

@@ -19,6 +19,7 @@ namespace BackendService.Services
         private readonly EligibilityService _eligibilityService;
         private readonly MatchingEventQueue _matchingQueue;
         private readonly IPopulationTypeRepo _populationTypeRepo;
+        private readonly IUserRepo _userRepo;
 
         public RecipientService(
             IRecipientRepo recipientRepo,
@@ -26,7 +27,8 @@ namespace BackendService.Services
             IUnitOfWork unitOfWork,
             EligibilityService eligibilityService,
             MatchingEventQueue matchingQueue,
-            IPopulationTypeRepo populationTypeRepo
+            IPopulationTypeRepo populationTypeRepo,
+            IUserRepo userRepo
             )
         {
             _recipientRepo = recipientRepo;
@@ -35,6 +37,7 @@ namespace BackendService.Services
             _eligibilityService = eligibilityService;
             _matchingQueue = matchingQueue;
             _populationTypeRepo = populationTypeRepo;
+            _userRepo = userRepo;
         }
 
         public async Task<RecipientProfileDto> GetMyProfileAsync(
@@ -180,6 +183,51 @@ namespace BackendService.Services
                 CreatedAt = r.CreatedAt,
                 RedeemedAt = r.RedeemedAt
             }).ToList();
+        }
+
+        public async Task DeactivateMyAccountAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            await using var transaction =
+                await _unitOfWork.BeginTransactionAsync(
+                    IsolationLevel.ReadCommitted,
+                    cancellationToken);
+
+            var recipient = await _recipientRepo
+                .GetByUserIdForUpdateAsync(
+                    userId,
+                    cancellationToken);
+
+            if (recipient == null)
+            {
+                throw new ResourceNotFoundException(
+                    "Recipient profile not found.");
+            }
+
+            var user = await _userRepo.GetByIdAsync(userId);
+
+            if (user == null || !user.IsActive)
+            {
+                throw new ForbiddenException(
+                    "Recipient account is inactive.");
+            }
+
+            var pendingRedemptions = await _redemptionRepo
+                .GetPendingByRecipientIdAsync(
+                    recipient.Id,
+                    cancellationToken);
+
+            user.IsActive = false;
+
+            foreach (var redemption in pendingRedemptions)
+            {
+                redemption.Status = "CANCELLED";
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
         }
 
     }

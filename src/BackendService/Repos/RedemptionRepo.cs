@@ -87,5 +87,17 @@ namespace BackendService.Repos
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
+
+        public async Task<List<Redemption>> GetPendingByRecipientIdAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _appDb.Redemptions
+                .Where(r =>
+                    r.RecipientId == recipientId &&
+                    r.Status == "PENDING")
+                .ToListAsync(cancellationToken);
+        }
+
     }
 }
