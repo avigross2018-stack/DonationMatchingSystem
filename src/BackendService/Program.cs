@@ -63,6 +63,8 @@ builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<AdminRedemptionService>();
+builder.Services.AddScoped<AdminPopulationTypeService>();
+builder.Services.AddScoped<AdminDonationService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<DonationService>();
 builder.Services.AddScoped<DonationMatchingService>();
@@ -189,10 +191,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-
 app.Run();
 
-// Exposes the top-level entry point to WebApplicationFactory without changing
-// production behavior.
+// Exposes the entry point to WebApplicationFactory.
 public partial class Program { }
-

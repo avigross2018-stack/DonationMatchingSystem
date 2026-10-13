@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using BackendService.Data;
 using BackendService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -29,20 +25,43 @@ namespace BackendService.Repos
                 .FirstOrDefaultAsync(r => r.Id == id);
         }
 
-        public async Task<Recipient?> GetByIdForUpdateAsync(int recipientId, CancellationToken cancellationToken = default)
+        public async Task<Recipient?> GetByIdForUpdateAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
         {
             var query = _appDb.Recipients
                 .FromSqlInterpolated(
                     $"SELECT * FROM `Recipients` WHERE `Id` = {recipientId} FOR UPDATE")
                 .AsAsyncEnumerable();
 
-            await foreach (var recipient in
-                query.WithCancellation(cancellationToken))
+            await foreach (var recipient in query
+                .WithCancellation(cancellationToken))
             {
                 return recipient;
             }
 
             return null;
+        }
+
+        public async Task<Recipient?> GetByIdForUpdateWithUserAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            var recipient = await GetByIdForUpdateAsync(
+                recipientId,
+                cancellationToken);
+
+            if (recipient is null)
+            {
+                return null;
+            }
+
+            // Load the tracked user after locking the recipient.
+            await _appDb.Entry(recipient)
+                .Reference(r => r.User)
+                .LoadAsync(cancellationToken);
+
+            return recipient;
         }
 
         public async Task<Recipient?> GetByUserIdAsync(int userId)
@@ -54,7 +73,8 @@ namespace BackendService.Repos
                 .FirstOrDefaultAsync(r => r.UserId == userId);
         }
 
-        public async Task<List<Recipient>> GetEligibleRecipientsAsync(CancellationToken cancellationToken = default)
+        public async Task<List<Recipient>> GetEligibleRecipientsAsync(
+            CancellationToken cancellationToken = default)
         {
             return await _appDb.Recipients
                 .AsNoTracking()
@@ -64,9 +84,11 @@ namespace BackendService.Repos
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task ReloadAsync(Recipient recipient, CancellationToken cancellationToken = default)
+        public async Task ReloadAsync(
+            Recipient recipient,
+            CancellationToken cancellationToken = default)
         {
-            // Recalling and updating entity values on track.
+            // Reload the tracked entity from the database.
             await _appDb.Entry(recipient)
                 .ReloadAsync(cancellationToken);
         }
@@ -90,7 +112,37 @@ namespace BackendService.Repos
                     r.Id == recipientId &&
                     r.User.IsActive);
         }
-        
+
+        public async Task<List<Recipient>> GetAllForAdminAsync(
+            CancellationToken cancellationToken = default)
+        {
+            // Include account and population details for administration.
+            return await _appDb.Recipients
+                .AsNoTracking()
+                .Include(r => r.User)
+                .Include(r => r.PopulationType)
+                .OrderBy(r => r.Id)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<Recipient?> GetByIdForAdminAsync(
+            int recipientId,
+            CancellationToken cancellationToken = default)
+        {
+            // Load the recipient's complete redemption history.
+            return await _appDb.Recipients
+                .AsNoTracking()
+                .Include(r => r.User)
+                .Include(r => r.PopulationType)
+                .Include(r => r.Redemptions)
+                    .ThenInclude(redemption => redemption.Donation)
+                        .ThenInclude(donation => donation.Donor)
+                            .ThenInclude(donor => donor.User)
+                .FirstOrDefaultAsync(
+                    r => r.Id == recipientId,
+                    cancellationToken);
+        }
+
         public async Task<Recipient?> GetByUserIdForUpdateAsync(
             int userId,
             CancellationToken cancellationToken = default)
@@ -100,8 +152,8 @@ namespace BackendService.Repos
                     $"SELECT * FROM `Recipients` WHERE `UserId` = {userId} FOR UPDATE")
                 .AsAsyncEnumerable();
 
-            await foreach (var recipient in
-                query.WithCancellation(cancellationToken))
+            await foreach (var recipient in query
+                .WithCancellation(cancellationToken))
             {
                 return recipient;
             }
